@@ -12,11 +12,52 @@ const g = context.module.exports;
 
 const run = (s, secs, dt = 1 / 60) => { for (let i = 0; i < Math.round(secs / dt); i++) g.step(s, dt); };
 
-test('HP starts at 5 and resets', () => {
+test('HP starts at 3 and resets', () => {
   const s = g.newGame();
-  assert.equal(s.hp, 5);
-  assert.equal(g.HP_MAX, 5);
+  assert.equal(s.hp, 3);
+  assert.equal(g.HP_MAX, 3);
   assert.equal(s.stars.length, 0);
+  assert.equal(s.timeLeft, g.TIME_LIMIT);
+});
+
+test('a hit spills every cup still in hand and sends you back to the cafe', () => {
+  const s = g.newGame(); g.start(s);
+  s.n = g.CAFE.door.slice(); g.interact(s);
+  assert.equal(s.carrying, 4);
+  s.n = g.ORDERS[0].door.slice(); g.interact(s);      // one delivered, three in hand
+  assert.equal(s.done.length, 1);
+  assert.equal(s.carrying, 3);
+  s.n = g.newGame().n;                                 // back out in the open
+  run(s, 3.05);
+  s.n = s.stars[0].to.slice();                         // stand on the impact point
+  run(s, 1.4);
+  assert.equal(s.hp, 2, 'one heart gone');
+  assert.equal(s.carrying, 0, 'the cups in hand are spilled');
+  assert.equal(s.target, 'cafe', 'sent back to the cafe');
+  assert.equal(s.done.length, 1, 'the delivery already made still counts');
+  s.n = g.CAFE.door.slice(); g.interact(s);
+  assert.equal(s.carrying, 3, 'the cafe refills only what is still owed');
+});
+
+test('the run is on a clock', () => {
+  const s = g.newGame(); g.start(s);
+  run(s, 2);
+  assert.ok(s.timeLeft < g.TIME_LIMIT && s.timeLeft > g.TIME_LIMIT - 2.2);
+  s.timeLeft = .05;
+  run(s, .3);
+  assert.equal(s.status, 'lost');
+  assert.equal(s.timeLeft, 0);
+  assert.equal(g.newGame().timeLeft, g.TIME_LIMIT, 'the clock resets');
+});
+
+test('every hit slows the walk down', () => {
+  const s = g.newGame();
+  const full = g.walkSpeed(s);
+  s.hp = 2; const hurt = g.walkSpeed(s);
+  s.hp = 1; const worse = g.walkSpeed(s);
+  assert.equal(full, g.WALK);
+  assert.ok(hurt < full && worse < hurt, `${full} > ${hurt} > ${worse}`);
+  assert.ok(worse > g.WALK * .5, 'still playable at one heart');
 });
 
 test('a volley of 4 stars is fired every 3 seconds while playing', () => {
@@ -35,7 +76,7 @@ test('one volley costs a standing player exactly 1 hp, not 4', () => {
   run(s, 3.1);
   assert.equal(s.stars.length, 4);
   run(s, 2.6);
-  assert.equal(s.hp, 4, 'only the aimed star connects');
+  assert.equal(s.hp, g.HP_MAX - 1, 'only the aimed star connects');
 });
 
 test('the fanned stars miss a standing player', () => {
@@ -50,7 +91,7 @@ test('nothing fires while paused or before start', () => {
   const s = g.newGame();
   run(s, 10);
   assert.equal(s.stars.length, 0);
-  assert.equal(s.hp, 5);
+  assert.equal(s.hp, g.HP_MAX);
   g.start(s); g.pause(s);
   run(s, 10);
   assert.equal(s.stars.length, 0);
@@ -61,7 +102,7 @@ test('a hit costs exactly 1 hp and removes that star', () => {
   run(s, 3.1);
   const before = s.stars.length;
   run(s, 2.5);
-  assert.equal(s.hp, 4, 'one hit costs exactly 1 hp');
+  assert.equal(s.hp, g.HP_MAX - 1, 'one hit costs exactly 1 hp');
   assert.ok(s.stars.length < before, 'the star disappears on impact');
 });
 
@@ -71,7 +112,7 @@ test('stars burst on landing and leave a pop behind', () => {
   for (const st of s.stars) st.to = g.math.at(2.4, -.5); // aim them all far away
   const fired = s.stars.slice();
   run(s, 1.0);
-  assert.equal(s.hp, 5, 'missed stars do no damage');
+  assert.equal(s.hp, g.HP_MAX, 'missed stars do no damage');
   assert.ok(fired.every(st => s.stars.includes(st)), 'still falling just before impact');
   run(s, 0.3);
   assert.ok(fired.every(st => !s.stars.includes(st)), 'gone the moment they land');
@@ -187,6 +228,44 @@ test('the walker turns to face the way they move', () => {
   assert.equal(s.facing, held, 'keeps facing where it stopped');
 });
 
+test('aliens patrol the surface without standing inside anything', () => {
+  const s = g.newGame(); g.start(s);
+  assert.equal(s.aliens.length, g.ALIEN_COUNT);
+  for (const a of s.aliens) {
+    assert.ok(Math.abs(g.math.len(a.n) - 1) < 1e-9, 'sits on the surface');
+    assert.ok(!g.blocked(a.n), 'does not spawn inside a building or tree');
+  }
+  const before = s.aliens.map(a => a.n.slice());
+  run(s, 1.5);
+  assert.ok(s.aliens.some((a, i) => g.math.angle(a.n, before[i]) > .02), 'they actually move');
+  for (const a of s.aliens) assert.ok(!g.blocked(a.n), 'and never end up inside something');
+});
+
+test('bumping an alien costs one heart, with a moment of mercy after', () => {
+  const s = g.newGame(); g.start(s);
+  s.stars = []; s.timeLeft = 999;
+  const a = s.aliens[0];
+  s.n = a.n.slice();                       // stand right on top of one
+  g.step(s, 1 / 60);
+  assert.equal(s.hp, g.HP_MAX - 1, 'one heart gone');
+  assert.ok(s.hurtTime > 0, 'brief invulnerability follows');
+  s.stars = [];
+  const hpAfter = s.hp;
+  for (let i = 0; i < 20; i++) { s.n = s.aliens[0].n.slice(); g.step(s, 1 / 60); s.stars = [] }
+  assert.equal(s.hp, hpAfter, 'no second hit while the mercy window lasts');
+});
+
+test('an alien hit does not spill the coffee', () => {
+  const s = g.newGame(); g.start(s);
+  s.n = g.CAFE.door.slice(); g.interact(s);
+  assert.equal(s.carrying, 4);
+  s.stars = []; s.timeLeft = 999;
+  s.n = s.aliens[0].n.slice();
+  g.step(s, 1 / 60);
+  assert.equal(s.hp, g.HP_MAX - 1);
+  assert.equal(s.carrying, 4, 'the cups survive an alien bump');
+});
+
 test('the task line names the current step', () => {
   const s = g.newGame(); g.start(s);
   assert.match(g.taskText(s), /카페에서 커피 받기/);
@@ -198,14 +277,14 @@ test('the task line names the current step', () => {
   assert.match(g.taskText(s), /3잔/);
 });
 
-test('five hits end the game and reset restores hp', () => {
+test('losing every heart ends the game and reset restores them', () => {
   const s = g.newGame(); g.start(s);
   run(s, 30);
   assert.equal(s.hp, 0);
   assert.equal(s.status, 'lost');
   assert.equal(s.stars.length, 0);
   const fresh = g.newGame();
-  assert.equal(fresh.hp, 5);
+  assert.equal(fresh.hp, 3);
   assert.equal(fresh.status, 'ready');
 });
 

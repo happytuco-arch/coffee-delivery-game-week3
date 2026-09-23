@@ -1,4 +1,71 @@
-<!doctype html><html lang="ko"><head><title>커피 배달 게임 | 프롬프트 구조화 실습</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;background:#efe5d2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#f4ebd7;overflow:auto}main{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}canvas{width:100%;min-height:0;flex:1;object-fit:contain;display:block}nav{flex-shrink:0;display:flex;justify-content:center;gap:5px;flex-wrap:wrap;padding:9px}button{font:inherit;font-size:12px;border:1px solid #aabbb0;border-radius:3px;background:#f9f4e6;color:#365b50;padding:9px 11px;cursor:pointer;touch-action:none}p{font-size:16px;line-height:1.6;margin:0 8px 10px;color:#4a2c17;flex-shrink:0;text-align:center;max-width:100%;white-space:normal;word-break:keep-all;overflow-wrap:break-word}</style></head><body><main><canvas tabindex="0" aria-label="플레이할 게임"></canvas><nav><button id="start">시작 / 계속</button><button id="pause">잠깐 멈추기</button><button id="reset">처음으로</button><button id="action">커피 받기 / 전하기</button><button data-dir="0,-1" aria-label="위">↑</button><button data-dir="-1,0" aria-label="왼쪽">←</button><button data-dir="0,1" aria-label="아래">↓</button><button data-dir="1,0" aria-label="오른쪽">→</button></nav><p>① 시작 누르기 → ② 방향키로 이동 → ③ 카페에서 E로 커피 받기 → ④ 이웃 앞에서 E로 배달하기</p></main><script>/* Dal-dongne Coffee. Original geometry and software 3D renderer. No dependencies. */
+<!doctype html><html lang="ko"><head><title>커피 배달 게임 | 프롬프트 구조화 실습</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#efe5d2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#3f5346;overflow:hidden}
+main{height:100vh;display:block}
+canvas{width:100%;height:100%;display:block;outline:none}
+
+/* Full-screen panels: title, how-to-play, pause and result. */
+.screen{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:16px;padding:24px;background:rgba(236,226,206,.94);text-align:center}
+.screen[hidden]{display:none}
+.screen h1{margin:0;font-size:clamp(30px,6vw,52px);letter-spacing:-.01em;color:#3c5a49}
+.screen h2{margin:0 0 4px;font-size:clamp(22px,4vw,30px);color:#3c5a49}
+.screen .lead{margin:0 0 14px;font-size:16px;color:#6d7a63;max-width:34rem;line-height:1.7;word-break:keep-all}
+.screen button{font:600 17px/1 inherit;padding:15px 30px;min-width:230px;border-radius:999px;cursor:pointer;
+ border:1px solid #c3b899;background:#fffaee;color:#3d6154;transition:transform .06s ease,background .12s ease}
+.screen button:hover{background:#fff;transform:translateY(-1px)}
+.screen button:active{transform:translateY(1px)}
+.screen button.primary{background:linear-gradient(#5c8a78,#47705f);border-color:#3b6151;color:#fff8ea}
+.screen button.primary:hover{background:linear-gradient(#679680,#4e7a68)}
+.screen button:focus-visible{outline:2px solid #7f9f8e;outline-offset:3px}
+
+.sheet{background:#fffaee;border:1px solid #d9cdb0;border-radius:16px;padding:26px 30px;max-width:30rem;text-align:left}
+.sheet dl{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;margin:0 0 18px;align-items:center}
+.sheet dt{margin:0;display:flex;gap:5px}
+.sheet dd{margin:0;font-size:15px;color:#55614c}
+.sheet ul{margin:0;padding-left:18px;font-size:15px;line-height:1.75;color:#55614c;word-break:keep-all}
+kbd{display:inline-block;min-width:26px;padding:4px 8px;font:600 12px/1.2 inherit;text-align:center;color:#40584c;
+ background:#f4ecd9;border:1px solid #cabfa3;border-bottom-width:2px;border-radius:6px}
+kbd.wide{min-width:96px}
+</style></head><body><main><canvas tabindex="0" aria-label="플레이할 게임"></canvas></main>
+<div class="screen" id="titleScreen">
+ <h1>배달의 커피 주문!</h1>
+ <p class="lead">작은 행성의 카페에서 커피를 받아, 네 이웃에게 전해 주세요.</p>
+ <button type="button" class="primary" id="btnPlay">게임 시작</button>
+ <button type="button" id="btnHowto">게임 방법</button>
+</div>
+<div class="screen" id="helpScreen" hidden>
+ <h2>게임 방법</h2>
+ <div class="sheet">
+  <dl>
+   <dt><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></dt><dd>이동 (<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 도 됩니다)</dd>
+   <dt><kbd class="wide">space</kbd></dt><dd>커피 받기 · 전하기</dd>
+   <dt><kbd>Esc</kbd></dt><dd>잠깐 멈추기</dd>
+   <dt><kbd>F</kbd></dt><dd>프레임(FPS) 표시 켜기 · 끄기</dd>
+  </dl>
+  <ul>
+   <li><b>제한 시간 안에</b> 카페에서 커피를 받아 네 이웃에게 모두 배달하세요.</li>
+   <li>가까이 가면 머리 위에 <b>SPACE</b> 표시가 뜹니다. 그때 누르세요.</li>
+   <li>머리 위 화살표가 다음 목적지를 가리킵니다.</li>
+   <li>하늘의 우주선이 별을 떨어뜨립니다. 바닥의 <b>붉은 원이 떨어질 자리</b>예요.</li>
+   <li>별에 맞으면 하트가 하나 사라지고 <b>들고 있던 커피를 모두 쏟습니다.</b> 카페에서 다시 받아야 해요(배달을 마친 잔은 그대로).</li>
+   <li>땅 위를 돌아다니는 <b>초록 외계인</b>과 부딪혀도 하트가 하나 사라집니다. 커피는 쏟지 않아요.</li>
+   <li>맞을수록 <b>걸음이 느려집니다.</b> 하트 셋을 모두 잃으면 처음부터 다시 합니다.</li>
+  </ul>
+ </div>
+ <button type="button" class="primary" id="btnBack">돌아가기</button>
+</div>
+<div class="screen" id="pauseScreen" hidden>
+ <h2>잠깐 멈췄어요</h2>
+ <p class="lead">천천히 쉬었다 오세요.</p>
+ <button type="button" class="primary" id="btnResume">이어서 하기</button>
+ <button type="button" id="btnQuit">처음 화면으로</button>
+</div>
+<div class="screen" id="overScreen" hidden>
+ <h2 id="overTitle">배달 완료!</h2>
+ <p class="lead" id="overText"></p>
+ <button type="button" class="primary" id="btnRetry">다시 하기</button>
+</div><script>/* Dal-dongne Coffee. Original geometry and software 3D renderer. No dependencies. */
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.Daldongne=api})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
 const W=1200,H=800,R=5.5,TAU=Math.PI*2;
@@ -33,8 +100,40 @@ const PROPS=(function(){
  list.push({n:at(.92,.53),r:.075,kind:'line'});
  return list;
 })();
+function blocked(n){return SITES.some(b=>angle(n,b.n)<Math.max(b.w,b.d)/(2*R)+.033)||PROPS.some(p=>angle(n,p.n)<p.r)}
+// Three little aliens wander the surface. Bumping into one costs a heart, same as a falling star.
+const ALIEN_COUNT=3,ALIEN_SPEED=.27,ALIEN_HIT=.075,ALIEN_TURN=2.3;
+function spawnAliens(){
+ const rnd=(seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}})(4242),out=[];
+ let guard=0;
+ while(out.length<ALIEN_COUNT&&guard++<500){
+  const lon=(rnd()-.5)*TAU,lat=Math.asin((rnd()-.5)*1.5),n=at(lon,lat);
+  if(angle(n,at(-.13,-.025))<.55||blocked(n))continue;
+  out.push({n,d:frame(n).e,p:rnd()*TAU,stun:0});
+ }
+ return out;
+}
+function stepAliens(s,dt){
+ for(const a of s.aliens){
+  a.stun=Math.max(0,a.stun-dt);
+  const side=norm(cross(a.n,a.d)),toP=sub(s.n,mul(a.n,dot(s.n,a.n)));
+  const chase=len(toP)>1e-6?norm(toP):a.d;
+  const weave=Math.sin(s.time*1.3+a.p)*.7;
+  const want=a.stun>0?mul(chase,-1):norm(add(mul(chase,.5),mul(side,weave)));
+  a.d=norm(add(a.d,mul(want,dt*ALIEN_TURN)));
+  a.d=norm(sub(a.d,mul(a.n,dot(a.d,a.n))));
+  const next=norm(add(a.n,mul(a.d,dt*ALIEN_SPEED)));
+  if(blocked(next)){a.d=norm(add(mul(a.d,-1),mul(side,.7)))}
+  else{a.n=next;a.d=norm(sub(a.d,mul(next,dot(a.d,next))))}
+  if(s.hurtTime<=0&&angle(a.n,s.n)<ALIEN_HIT){
+   s.hp=Math.max(0,s.hp-1);s.hurtTime=.5;a.stun=1.6;
+   if(s.hp===0){s.status='lost';s.stars=[];announce(s,'외계인에게 붙잡혔어요.');return}
+   announce(s,'외계인과 부딪혔어요!');
+  }
+ }
+}
 // A small saucer drifts over the walker and drops star-shaped hazards. Delivery rules are untouched.
-const HP_MAX=5,UFO_ALT=2.2,UFO_ORBIT=.36,UFO_PERIOD=13,STAR_FIRE=3,STAR_LIFE=3,STAR_FALL=1.18,STAR_HIT=.095,POP_LIFE=.55,STAR_VOLLEY=4,STAR_SPREAD=[0,.175,.25,.325],WALK=.74;
+const HP_MAX=3,TIME_LIMIT=95,SLOW_PER_HIT=.17,UFO_ALT=2.2,UFO_ORBIT=.36,UFO_PERIOD=13,STAR_FIRE=3,STAR_LIFE=3,STAR_FALL=1.18,STAR_HIT=.095,POP_LIFE=.55,STAR_VOLLEY=4,STAR_SPREAD=[0,.175,.25,.325],WALK=.74;
 function ufoFrame(s){return {e:norm(cross(s.north,s.n)),u:s.north}}
 // The saucer sways across the sky ahead of the walker instead of orbiting behind the camera.
 function ufoNormal(s){
@@ -62,6 +161,7 @@ function taskText(s){
 }
 function hazards(s,dt){
  s.hurtTime=Math.max(0,s.hurtTime-dt);
+ stepAliens(s,dt);if(s.status!=='playing')return;
  for(let i=s.cheers.length-1;i>=0;i--){s.cheers[i].t+=dt;if(s.cheers[i].t>=CHEER_LIFE)s.cheers.splice(i,1)}
  s.fireTime+=dt;if(s.fireTime>=STAR_FIRE){s.fireTime-=STAR_FIRE;fireStar(s)}
  for(const st of s.stars){st.t+=dt;Object.assign(st,starAt(st))}
@@ -73,13 +173,16 @@ function hazards(s,dt){
    s.stars.splice(i,1);s.pops.push({n:st.to,t:0,hit});
    if(hit){
     s.hp=Math.max(0,s.hp-1);s.hurtTime=.5;
+    const spilled=s.carrying;s.carrying=0;if(spilled)s.target='cafe';
     if(s.hp===0){s.status='lost';s.stars=[];announce(s,'커피를 쏟았어요. 다시 시작해 볼까요?');return}
-    announce(s,'앗, 별에 맞았어요. 남은 체력 '+s.hp);
+    announce(s,spilled?'앗! 커피를 '+spilled+'잔 쏟았어요. 카페로 다시 가요.':'앗, 별에 맞았어요.');
    }
   }
  }
 }
-function newGame(){const n=at(-.13,-.025);return {n,north:frame(n).u,facing:0,time:0,moving:false,status:'ready',carrying:0,done:[],target:'cafe',locale:'ko',message:'카페 앞에서 커피를 받아 보세요.',messageTime:8,steps:0,round:1,hp:HP_MAX,stars:[],fireTime:0,hurtTime:0,cheers:[],pops:[]};}
+function newGame(){const n=at(-.13,-.025);return {n,north:frame(n).u,facing:0,time:0,moving:false,status:'ready',carrying:0,done:[],target:'cafe',locale:'ko',message:'카페 앞에서 커피를 받아 보세요.',messageTime:8,steps:0,round:1,hp:HP_MAX,stars:[],fireTime:0,hurtTime:0,cheers:[],pops:[],timeLeft:TIME_LIMIT,aliens:spawnAliens()};}
+// Every hit costs a heart, spills the cups still in hand, and leaves the walker a little slower.
+function walkSpeed(s){return WALK*(1-(HP_MAX-s.hp)*SLOW_PER_HIT)}
 const CHEER_LIFE=1.5;
 function start(s){if(s.status==='ready'||s.status==='paused')s.status='playing'}
 function pause(s){if(s.status==='playing')s.status='paused';else if(s.status==='paused')s.status='playing'}
@@ -103,14 +206,16 @@ function interact(s){
 }
 function step(s,dt,input={}){
  if(s.status!=='playing')return;dt=clamp(dt,0,.05);s.time+=dt;s.messageTime=Math.max(0,s.messageTime-dt);
+ s.timeLeft=Math.max(0,s.timeLeft-dt);
+ if(s.timeLeft===0){s.status='lost';s.stars=[];s.timeUp=true;announce(s,'시간이 다 됐어요.');return}
  let x=input.x||0,y=input.y||0;const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}s.moving=!!(x||y);
  if(s.moving){
   // Turn toward the way we walk, smoothly, even when a wall blocks the step.
   let d=Math.atan2(-x,-y)-s.facing;while(d>Math.PI)d-=TAU;while(d<-Math.PI)d+=TAU;
   s.facing+=d*(1-Math.exp(-dt*14));
   // Up on the pad walks away from the camera: the quarter view puts -north at the top of the screen.
-  const east=norm(cross(s.north,s.n)),v=add(mul(east,x),mul(s.north,y)),next=norm(add(s.n,mul(v,dt*WALK)));
-  if(!SITES.some(b=>angle(next,b.n)<Math.max(b.w,b.d)/(2*R)+.033)&&!PROPS.some(p=>angle(next,p.n)<p.r)){
+  const east=norm(cross(s.north,s.n)),v=add(mul(east,x),mul(s.north,y)),next=norm(add(s.n,mul(v,dt*walkSpeed(s))));
+  if(!blocked(next)){
    s.n=next;s.north=norm(sub(s.north,mul(next,dot(s.north,next))));s.steps+=dt*6;
   }
  }
@@ -119,14 +224,24 @@ function step(s,dt,input={}){
 function chooseTarget(s,id){if(id==='cafe'||ORDERS.some(o=>o.id===id&&!s.done.includes(id)))s.target=id}
 // Geometry in true three-dimensional world coordinates. Canvas is the raster target.
 const LIGHT=norm([-1,2,3]);
+// Fixed night sky, built once so the stars never wander between frames.
+const SKY=(function(){const rnd=(seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}})(20260917),out=[];
+ for(let i=0;i<150;i++){const y=rnd()*520;out.push({x:rnd()*1200,y,r:.7+rnd()*1.7,a:.25+rnd()*.6,f:.7+rnd()*2.2,p:rnd()*TAU})}
+ return out})();
+const CLOUDS=[
+ {x:80,y:112,v:5.5,a:.13,b:[[0,0,60],[52,10,44],[-48,12,40],[16,-16,38]]},
+ {x:620,y:206,v:3.6,a:.10,b:[[0,0,74],[64,12,52],[-60,14,46]]},
+ {x:1030,y:96,v:7.2,a:.09,b:[[0,0,48],[42,8,36],[-40,10,32]]}];
+// Unit centroid, kept on every polygon so the horizon test never recomputes it per frame.
+function cen(pts){let x=0,y=0,z=0;for(const p of pts){x+=p[0];y+=p[1];z+=p[2]}const l=Math.hypot(x,y,z)||1;return [x/l,y/l,z/l]}
 function shade(hex,k){const a=hex.slice(1).match(/../g).map(x=>parseInt(x,16));return '#'+a.map(v=>Math.round(clamp(v*k,0,255)).toString(16).padStart(2,'0')).join('')}
 let sceneCache={};
 function makeScene(locale){
  const korean=locale==='ko',polys=[],labels=[];let currentLayer=0;
- const poly=(pts,color,lit=true)=>{let k=1;if(lit){const n=norm(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])));k=.77+.23*Math.abs(dot(n,LIGHT))}polys.push({pts,color:shade(color,k),layer:currentLayer})};
+ const poly=(pts,color,lit=true)=>{let k=1;if(lit){const n=norm(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])));k=.77+.23*Math.abs(dot(n,LIGHT))}polys.push({pts,color:shade(color,k),layer:currentLayer,c:cen(pts)})};
  function local(n,fn){const f=frame(n);return fn((x,y,z)=>add(mul(n,R+y),add(mul(f.e,x),mul(f.u,z))))}
  function box(p,x,y,z,w,h,d,color){const q=[p(x-w/2,y,z-d/2),p(x+w/2,y,z-d/2),p(x+w/2,y+h,z-d/2),p(x-w/2,y+h,z-d/2),p(x-w/2,y,z+d/2),p(x+w/2,y,z+d/2),p(x+w/2,y+h,z+d/2),p(x-w/2,y+h,z+d/2)];[[0,1,2,3],[1,5,6,2],[4,7,6,5],[0,3,7,4],[3,2,6,7]].forEach(ids=>poly(ids.map(i=>q[i]),color))}
- function ball(center,r,color,sx=1,sy=1,sz=1,seg=8,rings=5){for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){let v=[];for(const [a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){const n=at(a/seg*TAU,-Math.PI/2+b/rings*Math.PI);v.push(add(center,[n[0]*r*sx,n[1]*r*sy,n[2]*r*sz]))}poly(v,color)}}
+ function ball(center,r,color,sx=1,sy=1,sz=1,seg=12,rings=7){for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){let v=[];for(const [a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){const n=at(a/seg*TAU,-Math.PI/2+b/rings*Math.PI);v.push(add(center,[n[0]*r*sx,n[1]*r*sy,n[2]*r*sz]))}poly(v,color)}}
  function roof(p,w,d,y,color,hip=true){const e=.17;const q=[p(-w/2-e,y,-d/2-e),p(w/2+e,y,-d/2-e),p(w/2+e,y,d/2+e),p(-w/2-e,y,d/2+e)];const ridge=[p(-w*.22,y+.42,0),p(w*.22,y+.42,0)];poly([q[0],q[1],ridge[1],ridge[0]],color);poly([q[3],ridge[0],ridge[1],q[2]],color);poly([q[0],ridge[0],q[3]],color);poly([q[1],q[2],ridge[1]],color);box(p,0,y-.07,0,w+.33,.075,d+.33,shade(color,.78));if(hip){for(let i=0;i<12;i++){const x=-w*.56+i*w*1.12/11;const endx=clamp(x,-w*.22,w*.22);poly([p(x-.017,y+.009,-d/2-e),p(x+.017,y+.009,-d/2-e),p(endx+.014,y+.429,0),p(endx-.014,y+.429,0)],shade(color,1.25),false)}box(p,0,y+.4,0,w*.52,.075,.09,shade(color,1.2))}}
  // The triangulated globe provides both the curved horizon and foreground occlusion.
  const rng=seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}},rand=rng(531);
@@ -291,41 +406,92 @@ function camera(s){
  const eye=add(focus,mul(back,CAM_DIST));
  // Screen up comes from the ground normal, not from north: north stops working past a 45 degree tilt.
  const f=norm(sub(focus,eye)),right=norm(cross(s.n,f)),up=norm(cross(f,right));
- return {eye,f,right,up,project(v){const d=sub(v,eye),z=dot(d,f);return {x:W/2+dot(d,right)*CAM_FOCAL/z,y:433-dot(d,up)*CAM_FOCAL/z,z}},eyeN:norm(eye)};
+ // Projection runs on every visible vertex each frame, so it works on scalars, not new arrays.
+ const e0=eye[0],e1=eye[1],e2=eye[2],f0=f[0],f1=f[1],f2=f[2],r0=right[0],r1=right[1],r2=right[2],u0=up[0],u1=up[1],u2=up[2];
+ return {eye,f,right,up,project(v){const dx=v[0]-e0,dy=v[1]-e1,dz=v[2]-e2,z=dx*f0+dy*f1+dz*f2,k=CAM_FOCAL/z;
+  return {x:W/2+(dx*r0+dy*r1+dz*r2)*k,y:433-(dx*u0+dy*u1+dz*u2)*k,z}},eyeN:norm(eye)};
 }
-function draw(c,s,{overlay=true}={}){
+function draw(c,s){
  const scene=sceneCache[s.locale]||(sceneCache[s.locale]=makeScene(s.locale));const cam=camera(s);c.save();c.clearRect(0,0,W,H);
- const bg=c.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#eadac2');bg.addColorStop(1,'#f6eddc');c.fillStyle=bg;c.fillRect(0,0,W,H);
- c.fillStyle='#d9cbb344';c.beginPath();c.ellipse(W/2,737,230,25,0,0,TAU);c.fill();
+ const bg=c.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#101a36');bg.addColorStop(.5,'#222b52');bg.addColorStop(1,'#3d3a63');c.fillStyle=bg;c.fillRect(0,0,W,H);
+ // Night sky: fixed stars, a drifting moon glow and a few slow clouds.
+ for(const st of SKY){const tw=.55+.45*Math.sin(s.time*st.f+st.p);
+  c.fillStyle='rgba(246,242,214,'+(st.a*tw).toFixed(2)+')';c.beginPath();c.arc(st.x,st.y,st.r,0,TAU);c.fill()}
+ {const mx=232,my=132;
+  const g0=c.createRadialGradient(mx,my,10,mx,my,104);g0.addColorStop(0,'rgba(248,240,206,.34)');g0.addColorStop(1,'rgba(248,240,206,0)');
+  c.fillStyle=g0;c.beginPath();c.arc(mx,my,104,0,TAU);c.fill();
+  c.fillStyle='#f6eec9';c.beginPath();c.arc(mx,my,44,0,TAU);c.fill();
+  c.fillStyle='#e6dcb4';c.beginPath();c.arc(mx-13,my-11,7,0,TAU);c.arc(mx+15,my+8,10,0,TAU);c.arc(mx-4,my+19,5,0,TAU);c.fill()}
+ for(const cl of CLOUDS){const cx=(cl.x+s.time*cl.v)%(W+420)-210;
+  c.fillStyle='rgba(206,206,232,'+cl.a+')';
+  for(const b of cl.b){c.beginPath();c.ellipse(cx+b[0],cl.y+b[1],b[2],b[2]*.56,0,0,TAU);c.fill()}}
  let polys=scene.polys.slice(),labels=scene.labels.slice();
- function dynPoly(pts,color){polys.push({pts,color,layer:2})}
+ function dynPoly(pts,color){polys.push({pts,color,layer:2,c:cen(pts)})}
  const litDyn=(pts,color)=>{const nn=norm(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])));dynPoly(pts,shade(color,.76+.24*Math.abs(dot(nn,LIGHT))))};
  // Ground shadows sit on the road layer, so the player can read exactly where things stand.
  const shadowAt=(nn,rad,color)=>{const fr=frame(nn),pts=[];
-  for(let i=0;i<20;i++){const a=i/20*TAU;pts.push(add(mul(nn,R+.02),add(mul(fr.e,Math.cos(a)*rad),mul(fr.u,Math.sin(a)*rad))))}
-  polys.push({pts,color,layer:1})};
- function ball(center,r,color,sx=1,sy=1,sz=1){for(let j=0;j<5;j++)for(let i=0;i<8;i++){const pts=[];for(const[a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){let n=at(a/8*TAU,-Math.PI/2+b/5*Math.PI);pts.push(add(center,[n[0]*r*sx,n[1]*r*sy,n[2]*r*sz]))}const n=norm(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])));dynPoly(pts,shade(color,.82+.18*Math.abs(dot(n,LIGHT))))}}
+  for(let i=0;i<13;i++){const a=i/13*TAU;pts.push(add(mul(nn,R+.02),add(mul(fr.e,Math.cos(a)*rad),mul(fr.u,Math.sin(a)*rad))))}
+  polys.push({pts,color,layer:1,c:cen(pts)})};
+ // Detail budget: the walker is what the player watches, so only they get the smoother mesh.
+ let BQ=[8,5];
+ function ball(center,r,color,sx=1,sy=1,sz=1){const seg=BQ[0],rings=BQ[1];for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){const pts=[];for(const[a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){let n=at(a/seg*TAU,-Math.PI/2+b/rings*Math.PI);pts.push(add(center,[n[0]*r*sx,n[1]*r*sy,n[2]*r*sz]))}const n=norm(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])));dynPoly(pts,shade(color,.82+.18*Math.abs(dot(n,LIGHT))))}}
  function person(n,isPlayer,color){
   // The walker's whole body swings round to the heading, and leans into the walk.
   let f;
   if(isPlayer){const east=norm(cross(s.north,n)),u=norm(add(mul(s.north,Math.cos(s.facing)),mul(east,Math.sin(s.facing))));f={n,e:norm(cross(u,n)),u}}
   else f=frame(n);
+  BQ=isPlayer?[12,7]:[8,5];
   const bob=isPlayer&&s.moving?Math.sin(s.steps*TAU)*.02:0,lean=isPlayer&&s.moving?-.15:0;
   const pos=(x,y,z)=>add(mul(n,R+y+bob),add(mul(f.e,x),mul(f.u,z+lean*y)));
-  ball(pos(0,.24,0),.17,color,1,1.5,.8);ball(pos(0,.53,0),.19,'#d7a576',1,1.07,.95);
-  ball(pos(0,.68,.015),.145,'#675044',1,.55,1);
-  // Faces look toward the southern walking direction; visible from the follow camera.
-  ball(pos(-.061,.555,-.169),.025,'#3a4035');ball(pos(.061,.555,-.169),.025,'#3a4035');
-  ball(pos(-.115,.47,-.14),.031,'#d88872',1,.6,.4);ball(pos(.115,.47,-.14),.031,'#d88872',1,.6,.4);
   const walk=isPlayer&&s.moving?Math.sin(s.steps*TAU)*.065:0;
-  ball(pos(-.09,.066,walk),.073,'#574e42',.75,.8,1.45);ball(pos(.09,.066,-walk),.073,'#574e42',.75,.8,1.45);
-  ball(pos(-.195,.28,-.07-walk*.55),.067,'#d7a576',.7,1,1);ball(pos(.195,.28,-.07+walk*.55),.067,'#d7a576',.7,1,1);
+  if(isPlayer){
+   // The barista: a round little bear in a café apron. Faces are on the -z side, toward the camera.
+   const FUR='#a87a4e',FUR2='#c1936a',SNOUT='#f0dcc0',DARK='#3b2f27',APRON='#eae3d0';
+   ball(pos(0,.25,0),.185,FUR,1,1.4,.86);
+   ball(pos(0,.565,0),.205,FUR2,1,1,.96);
+   for(const sx of[-.152,.152]){ball(pos(sx,.705,.02),.073,FUR2);ball(pos(sx,.712,-.028),.041,'#e3b98f')}
+   ball(pos(0,.508,-.152),.088,SNOUT,1,.82,.78);
+   ball(pos(0,.522,-.208),.033,DARK,1,.85,.8);
+   for(const sx of[-.079,.079])ball(pos(sx,.605,-.158),.027,DARK);
+   for(const sx of[-.079,.079])ball(pos(sx-.012,.615,-.178),.009,'#fdf8ec');
+   litDyn([pos(-.158,.06,-.182),pos(.158,.06,-.182),pos(.138,.405,-.176),pos(-.138,.405,-.176)],APRON);
+   for(const sx of[-1,1])litDyn([pos(sx*.128,.40,-.178),pos(sx*.056,.40,-.178),pos(sx*.078,.552,-.125),pos(sx*.138,.552,-.125)],APRON);
+   ball(pos(0,.185,-.196),.028,'#9a7551',1,1,.5);
+   // The camera rides behind the bear, so the apron has to read from the back too: crossed straps and a bow.
+   for(const sx of[-1,1])litDyn([pos(sx*.142,.40,.172),pos(sx*.074,.40,.172),pos(-sx*.05,.18,.178),pos(-sx*.118,.18,.178)],APRON);
+   litDyn([pos(-.156,.21,.176),pos(.156,.21,.176),pos(.156,.135,.176),pos(-.156,.135,.176)],APRON);
+   for(const sx of[-1,1])ball(pos(sx*.075,.172,.2),.05,APRON,1,.85,.6);
+   ball(pos(-.09,.066,walk),.075,'#8b6440',.78,.8,1.4);ball(pos(.09,.066,-walk),.075,'#8b6440',.78,.8,1.4);
+   ball(pos(-.202,.29,-.07-walk*.55),.072,FUR,.72,1,1);ball(pos(.202,.29,-.07+walk*.55),.072,FUR,.72,1,1);
+  }else{
+   ball(pos(0,.24,0),.17,color,1,1.5,.8);ball(pos(0,.53,0),.19,'#d7a576',1,1.07,.95);
+   ball(pos(0,.68,.015),.145,'#675044',1,.55,1);
+   // Faces look toward the southern walking direction; visible from the follow camera.
+   ball(pos(-.061,.555,-.169),.025,'#3a4035');ball(pos(.061,.555,-.169),.025,'#3a4035');
+   ball(pos(-.115,.47,-.14),.031,'#d88872',1,.6,.4);ball(pos(.115,.47,-.14),.031,'#d88872',1,.6,.4);
+   ball(pos(-.09,.066,walk),.073,'#574e42',.75,.8,1.45);ball(pos(.09,.066,-walk),.073,'#574e42',.75,.8,1.45);
+   ball(pos(-.195,.28,-.07),.067,'#d7a576',.7,1,1);ball(pos(.195,.28,-.07),.067,'#d7a576',.7,1,1);
+  }
   if(isPlayer&&s.carrying){
    dynPoly([pos(-.20,.29,-.13),pos(.20,.29,-.13),pos(.20,.29,-.46),pos(-.20,.29,-.46)],'#966f4e');
    for(let i=0;i<s.carrying;i++){const x=(i%2-.5)*.16,z=-.23-Math.floor(i/2)*.16;const base=pos(x,.3,z),top=pos(x,.435,z);for(let a=0;a<8;a++){const k=a/8*TAU,k2=(a+1)/8*TAU;dynPoly([add(base,add(mul(f.e,Math.cos(k)*.048),mul(f.u,Math.sin(k)*.048))),add(base,add(mul(f.e,Math.cos(k2)*.048),mul(f.u,Math.sin(k2)*.048))),add(top,add(mul(f.e,Math.cos(k2)*.058),mul(f.u,Math.sin(k2)*.058))),add(top,add(mul(f.e,Math.cos(k)*.058),mul(f.u,Math.sin(k)*.058)))],a%2?'#f0e7d1':'#e0d2b2')};ball(pos(x,.446,z),.058,'#805a40',1,.17,1)}
   }
  }
  for(const o of ORDERS){person(o.door,false,s.done.includes(o.id)?'#829b75':['#af7869','#8d9675','#a29dab','#b89868'][ORDERS.indexOf(o)]);if(!s.done.includes(o.id))labels.push({pos:mul(o.door,R+1.03),text:'·',kind:'pin',n:o.door,id:o.id});}
+ // Wandering aliens, about as big as a falling star.
+ for(const a of s.aliens){
+  if(dot(a.n,cam.eyeN)<.29)continue;
+  shadowAt(a.n,.17,'rgba(30,48,42,.34)');
+  BQ=[9,6];
+  const af={e:norm(cross(a.n,a.d)),u:mul(a.d,-1)},bob=Math.sin(s.time*5.5+a.p)*.022;
+  const ap=(x,y,z)=>add(mul(a.n,R+y+bob),add(mul(af.e,x),mul(af.u,z)));
+  const skin=a.stun>0?'#8fd6a8':'#6dc08d';
+  ball(ap(0,.13,0),.135,skin,1,1.12,.9);
+  ball(ap(0,.30,0),.14,skin,1,.95,.92);
+  for(const sx of[-.07,.07])ball(ap(sx,.315,-.1),.04,'#1f2f2a');
+  for(const sx of[-1,1])ball(ap(sx*.105,.475,.015),.04,'#ffd98a');
+  BQ=[8,5];
+ }
  shadowAt(s.n,.27,'rgba(62,72,56,.3)');
  for(const st of s.stars)shadowAt(st.n,.1+.05*(1-Math.min(1,st.t/STAR_FALL)),'rgba(70,60,40,.32)');
  person(s.n,true,'#467f76');
@@ -376,8 +542,28 @@ function draw(c,s,{overlay=true}={}){
  {const d=target(s);labels.push({pos:mul(d.n,R+(d.id==='pavilion'?2.25:d.h+1.42)),text:s.locale==='ko'?d.name:d.en,kind:'sign',n:d.n})}
  // The horizon depends on how far the eye actually is; a fixed cut-off let far-side decals bleed through.
  const HORIZON=R/len(cam.eye);
- const faces=[];for(const p of polys){const center=mul(p.pts.reduce(add,[0,0,0]),1/p.pts.length);if(dot(norm(center),cam.eyeN)<(p.layer===0?-.05:p.layer===1?HORIZON:.29))continue;const pts=p.pts.map(cam.project);if(pts.some(p=>p.z<=.1))continue;faces.push({pts,color:p.color,layer:p.layer,z:pts.reduce((a,p)=>a+p.z,0)/pts.length})}faces.sort((a,b)=>a.layer-b.layer||b.z-a.z);
+ const faces=[],eN=cam.eyeN;
+ for(const p of polys){
+  const cc=p.c;if(cc[0]*eN[0]+cc[1]*eN[1]+cc[2]*eN[2]<(p.layer===0?-.05:p.layer===1?HORIZON:.29))continue;
+  const src=p.pts,pts=[];let zs=0,ok=true;
+  for(let i=0;i<src.length;i++){const q=cam.project(src[i]);if(q.z<=.1){ok=false;break}pts.push(q);zs+=q.z}
+  if(!ok)continue;
+  faces.push({pts,color:p.color,layer:p.layer,z:zs/pts.length});
+ }
+ faces.sort((a,b)=>a.layer-b.layer||b.z-a.z);
  for(const p of faces){c.fillStyle=p.color;c.beginPath();p.pts.forEach((v,i)=>i?c.lineTo(v.x,v.y):c.moveTo(v.x,v.y));c.closePath();c.fill();if(p.layer===0){c.strokeStyle=p.color;c.lineWidth=.65;c.stroke()}}
+ // Dusk wash over the town, then warm light spilling from every window.
+ c.fillStyle='rgba(38,44,92,.30)';c.fillRect(0,0,W,H);
+ for(const site of SITES){
+  if(dot(site.n,cam.eyeN)<HORIZON-.06)continue;
+  const dir=norm(sub(site.door,mul(site.n,dot(site.door,site.n))));
+  const wp=cam.project(add(mul(site.n,R+.40),mul(dir,.52)));
+  if(wp.z<=.1)continue;
+  const rad=Math.max(9,760/wp.z);
+  const gl=c.createRadialGradient(wp.x,wp.y,0,wp.x,wp.y,rad);
+  gl.addColorStop(0,'rgba(255,216,142,.62)');gl.addColorStop(.45,'rgba(255,198,116,.24)');gl.addColorStop(1,'rgba(255,198,116,0)');
+  c.fillStyle=gl;c.beginPath();c.arc(wp.x,wp.y,rad,0,TAU);c.fill();
+ }
  // Only front-facing labels remain legible above their own buildings.
  for(const l of labels){if(dot(l.n,cam.eyeN)<.22)continue;const p=cam.project(l.pos);if(l.kind==='sign'){
   c.font='500 14px "Workshop", "Noto Sans KR", sans-serif';const width=c.measureText(l.text).width+18;c.fillStyle='#faf2df';c.fillRect(p.x-width/2,p.y-12,width,24);c.fillStyle='#49584a';c.textAlign='center';c.fillText(l.text,p.x,p.y+5);
@@ -386,7 +572,7 @@ function draw(c,s,{overlay=true}={}){
  // Ground effects are anchored to points on the globe, so anything past the horizon must be dropped.
  const onThisSide=nn=>dot(nn,cam.eyeN)>HORIZON;
  const groundRing=(nn,rad,lift)=>{const fr=frame(nn);c.beginPath();
-  for(let i=0;i<=26;i++){const a=i/26*TAU,p=cam.project(add(mul(nn,R+lift),add(mul(fr.e,Math.cos(a)*rad),mul(fr.u,Math.sin(a)*rad))));i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)}
+  for(let i=0;i<=16;i++){const a=i/16*TAU,p=cam.project(add(mul(nn,R+lift),add(mul(fr.e,Math.cos(a)*rad),mul(fr.u,Math.sin(a)*rad))));i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)}
   c.closePath()};
  if(s.status==='playing')for(const st of s.stars){
   if(!onThisSide(st.to))continue;
@@ -421,40 +607,92 @@ function draw(c,s,{overlay=true}={}){
    c.fillStyle='rgba(196,86,76,'+(1-t2).toFixed(2)+')';c.font='700 '+(19+i*3)+'px sans-serif';
    c.fillText('♥',base.x+(i-1)*24,base.y-t2*78)}
  }
- c.textAlign='left';c.fillStyle='#3c5347';c.font='400 14px "Workshop", "Noto Sans KR", sans-serif';c.fillText('A LITTLE WORLD, A WARM CUP',42,44);c.font='500 37px "Workshop", "Noto Sans KR", sans-serif';c.fillText(s.locale==='ko'?'달동네 커피':'Neighborhood Coffee',40,95);c.font='400 15px "Workshop", "Noto Sans KR", sans-serif';c.fillStyle='#687763';c.fillText('서두르지 않아도 괜찮아요.',43,126);
- c.fillStyle='#f8f2e5';c.beginPath();c.roundRect(943,30,217,274,10);c.fill();c.fillStyle='#485a48';c.font='500 18px "Workshop", "Noto Sans KR", sans-serif';c.fillText('배달  '+s.done.length+' / 4',966,63);c.font='400 15px "Workshop", "Noto Sans KR", sans-serif';c.fillText('들고 있는 커피  '+s.carrying+'잔',966,96);
- c.fillText('체력',966,130);c.fillStyle='#c0563f';c.font='400 17px "Workshop", "Noto Sans KR", sans-serif';c.fillText('♥'.repeat(s.hp)+'♡'.repeat(Math.max(0,HP_MAX-s.hp)),1012,130);
  if(s.hurtTime>0){c.fillStyle='rgba(200,72,50,'+(.28*s.hurtTime/.5).toFixed(3)+')';c.fillRect(0,0,W,H)}
- // One line that always names the next step: receive at the cafe, or deliver to a named neighbour.
- {const t=taskText(s);c.save();c.textAlign='center';c.font='500 21px "Workshop", "Noto Sans KR", sans-serif';
-  const bw=c.measureText(t).width+52;c.fillStyle=s.carrying?'#8a5a3ceb':'#3f6151eb';c.beginPath();c.roundRect(600-bw/2,10,bw,42,21);c.fill();
-  c.fillStyle='#fff8e7';c.fillText(t,600,38);c.restore()}
- // A compass uses actual spherical tangents, including targets beyond the horizon.
- if(s.status!=='won'){
-  const dest=target(s),delta=sub(dest.door,mul(s.n,dot(dest.door,s.n))),east=norm(cross(s.north,s.n));const a=Math.atan2(dot(delta,east),dot(delta,s.north));
-  c.save();c.translate(1065,188);c.fillStyle='#ece1c8';c.beginPath();c.arc(0,0,38,0,TAU);c.fill();c.rotate(a);c.fillStyle='#b66f4f';c.beginPath();c.moveTo(0,-26);c.lineTo(11,12);c.lineTo(0,5);c.lineTo(-11,12);c.closePath();c.fill();c.restore();
-  c.fillStyle='#58664e';c.font='400 14px "Workshop", "Noto Sans KR", sans-serif';c.textAlign='center';c.fillStyle=s.carrying?'#8a5a3c':'#3f6151';c.font='500 14px "Workshop", "Noto Sans KR", sans-serif';c.fillText(s.carrying?'배달할 곳':'커피 받을 곳',1065,246);
-  c.fillStyle='#58664e';c.font='400 14px "Workshop", "Noto Sans KR", sans-serif';c.fillText(s.locale==='ko'?dest.name:dest.en,1065,268);c.fillText(Math.round(angle(s.n,dest.door)*R*10)+' 걸음 거리',1065,291);
+ // Right-hand panel: quest, coffee in hand, health bar. Nothing else competes for attention.
+ {const X=943,Y=30,PW=217,label='500 12px "Workshop", "Noto Sans KR", sans-serif';
+  c.fillStyle='#f6f1e4';c.beginPath();c.roundRect(X,Y,PW,186,10);c.fill();
+  c.textAlign='left';
+  c.fillStyle='#8d8568';c.font=label;c.fillText('퀘스트',X+23,Y+26);
+  c.fillStyle='#41553f';c.font='600 21px "Workshop", "Noto Sans KR", sans-serif';c.fillText('배달  '+s.done.length+' / 4',X+23,Y+52);
+  for(let i=0;i<4;i++){c.fillStyle=i<s.done.length?'#5c8a6e':'#ded5be';c.beginPath();c.roundRect(X+147+i*15,Y+38,11,11,3);c.fill()}
+  c.fillStyle='#8d8568';c.font=label;c.fillText('커피',X+23,Y+82);
+  for(let i=0;i<4;i++){const has=i<s.carrying;
+   c.fillStyle=has?'#b8825a':'#e4dcc6';c.beginPath();c.roundRect(X+62+i*22,Y+72,15,17,3);c.fill();
+   c.fillStyle=has?'#d8ac7f':'#ece5d3';c.beginPath();c.roundRect(X+62+i*22,Y+72,15,5,2);c.fill()}
+  c.fillStyle='#8d8568';c.font=label;c.fillText('체력',X+23,Y+120);
+  const heart=(hx,hy,sz,col)=>{c.save();c.translate(hx,hy);c.scale(sz,sz);c.beginPath();
+   c.moveTo(0,.3);c.bezierCurveTo(0,0,-.5,0,-.5,.3);c.bezierCurveTo(-.5,.62,0,.8,0,1);
+   c.bezierCurveTo(0,.8,.5,.62,.5,.3);c.bezierCurveTo(.5,0,0,0,0,.3);c.closePath();
+   c.fillStyle=col;c.fill();c.restore()};
+  for(let i=0;i<HP_MAX;i++)heart(X+66+i*32,Y+107,24,i<s.hp?'#d93b3b':'#e6dcc8');
+  c.fillStyle='#8d8568';c.font=label;c.fillText('시간',X+23,Y+160);
+  const left=Math.ceil(s.timeLeft),low=left<=20;
+  c.fillStyle=low?'#c4402f':'#41553f';c.font='600 19px "Workshop", "Noto Sans KR", sans-serif';
+  c.fillText(String(Math.floor(left/60))+':'+String(left%60).padStart(2,'0'),X+62,Y+161);
+  const tx=X+118,ty=Y+150,tw=76,th=9;
+  c.fillStyle='#e4dcc6';c.beginPath();c.roundRect(tx,ty,tw,th,4.5);c.fill();
+  const tf=s.timeLeft/TIME_LIMIT;
+  if(tf>0){c.fillStyle=low?'#c4402f':'#5f9a6b';c.beginPath();c.roundRect(tx,ty,Math.max(th,tw*tf),th,4.5);c.fill()}
  }
- const near=nearest(s);if(s.status==='playing'&&near){c.textAlign='center';c.fillStyle='#3f6151';c.beginPath();c.roundRect(362,716,476,42,21);c.fill();c.fillStyle='#fff8e7';c.font='400 17px "Workshop", "Noto Sans KR", sans-serif';c.fillText('E / Space  ·  '+(near.id==='cafe'?'커피 받기':s.done.includes(near.id)?'인사 나누기':'커피 전하기'),600,743)}
+ // Within reach, a spacebar keycap floats over the walker's head. No wording needed.
+ if(s.status==='playing'&&nearest(s)){
+  const kp=cam.project(mul(s.n,R+1.74+Math.sin(s.time*3.4)*.05));
+  if(kp.z>.1){const rad=33;
+   c.fillStyle='rgba(20,28,46,.35)';c.beginPath();c.arc(kp.x+2,kp.y+4,rad,0,TAU);c.fill();
+   c.fillStyle='#fdf6e6';c.beginPath();c.arc(kp.x,kp.y,rad,0,TAU);c.fill();
+   c.strokeStyle='#3f6151';c.lineWidth=3;c.beginPath();c.arc(kp.x,kp.y,rad-1.5,0,TAU);c.stroke();
+   c.fillStyle='#3f6151';c.font='700 13px "Workshop", "Noto Sans KR", sans-serif';
+   c.textAlign='center';c.textBaseline='middle';c.fillText('SPACE',kp.x,kp.y+1);c.textBaseline='alphabetic'}
+ }
  c.textAlign='center';if(s.messageTime>0&&s.status==='playing'){c.fillStyle='#405a48';c.font='400 15px "Workshop", "Noto Sans KR", sans-serif';c.fillText(s.message,600,783)}
- if(overlay&&s.status!=='playing'){
-  c.fillStyle='#f4ebdbe8';c.beginPath();c.roundRect(278,284,644,254,12);c.fill();c.fillStyle='#405a48';c.font='500 36px "Workshop", "Noto Sans KR", sans-serif';c.fillText({ready:'커피 한 잔의 작은 여행',paused:'잠깐 쉬어 가요',lost:'커피를 쏟았어요',won:'오늘의 배달을 마쳤어요'}[s.status],600,347);
-  c.font='400 18px "Workshop", "Noto Sans KR", sans-serif';c.fillText({ready:'카페에서 네 잔을 받아, 이웃에게 전해 주세요.',paused:'계속하기를 누르면 마을로 돌아갑니다.',lost:'우주선의 별에 다섯 번 맞았어요. 다시 배달해 볼까요?',won:'네 잔의 커피, 네 이웃의 인사.'}[s.status],600,394);
-  c.fillText(s.status==='lost'?'하늘의 우주선을 피하며 이동하세요':'방향키 / WASD 이동  ·  E / Space 대화',600,436);c.fillStyle='#aa6e50';c.font='400 16px "Workshop", "Noto Sans KR", sans-serif';c.fillText('아래 '+({won:'다시 산책하기',paused:'계속하기',lost:'다시 시작하기',ready:'산책 시작'}[s.status])+' 버튼',600,486);
- }c.restore();
+ c.restore();
 }
 function mount(canvas,onUpdate=()=>{}){
  const c=canvas.getContext('2d');canvas.width=W;canvas.height=H;let s=newGame(),last=0,raf,keys=new Set(),pointer={x:0,y:0},alive=true;
- const keydown=e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName))return;const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','e',' '].includes(k)){e.preventDefault();if((k==='e'||k===' ')&&!e.repeat)interact(s);else keys.add(k)}};
+ // Press F for a live frame-rate readout, measured from the real animation loop.
+ let fpsOn=false,fpsAcc=0,fpsN=0,fpsVal=0,fpsWorst=0;
+ const keydown=e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName))return;const k=e.key.toLowerCase();
+  if(k==='escape'){e.preventDefault();pause(s);onUpdate(s);return}
+  if(k==='f'){e.preventDefault();fpsOn=!fpsOn;return}
+  if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d',' '].includes(k)){e.preventDefault();if(k===' '&&!e.repeat)interact(s);else keys.add(k)}};
  const keyup=e=>keys.delete(e.key.toLowerCase());
  const blur=()=>{keys.clear();pointer={x:0,y:0};if(s.status==='playing'){s.status='paused';onUpdate(s)}};
  const visibility=()=>{if(document.hidden)blur()};
- function loop(ms){if(!alive)return;const dt=last?(ms-last)/1000:0;last=ms;step(s,dt,{x:pointer.x+(keys.has('arrowright')||keys.has('d')?1:0)-(keys.has('arrowleft')||keys.has('a')?1:0),y:pointer.y+(keys.has('arrowdown')||keys.has('s')?1:0)-(keys.has('arrowup')||keys.has('w')?1:0)});draw(c,s);onUpdate(s);raf=requestAnimationFrame(loop)}
+ function loop(ms){if(!alive)return;const dt=last?(ms-last)/1000:0;last=ms;step(s,dt,{x:pointer.x+(keys.has('arrowright')||keys.has('d')?1:0)-(keys.has('arrowleft')||keys.has('a')?1:0),y:pointer.y+(keys.has('arrowdown')||keys.has('s')?1:0)-(keys.has('arrowup')||keys.has('w')?1:0)});draw(c,s);
+  if(dt>0){fpsAcc+=dt;fpsN++;if(fpsAcc>=.5){fpsVal=Math.round(fpsN/fpsAcc);fpsWorst=fpsWorst?Math.min(fpsWorst,fpsVal):fpsVal;fpsAcc=0;fpsN=0}}
+  if(fpsOn){c.save();c.fillStyle='rgba(16,26,54,.78)';c.beginPath();c.roundRect(24,24,168,46,9);c.fill();
+   c.fillStyle=fpsVal>=58?'#8fdca6':fpsVal>=45?'#f0d08a':'#e8836f';c.font='600 20px "Workshop", "Noto Sans KR", sans-serif';c.textAlign='left';
+   c.fillText(fpsVal+' FPS',40,54);c.fillStyle='#b9c2d8';c.font='400 13px "Workshop", "Noto Sans KR", sans-serif';c.fillText('최저 '+fpsWorst,112,54);c.restore()}
+  onUpdate(s);raf=requestAnimationFrame(loop)}
  addEventListener('keydown',keydown);addEventListener('keyup',keyup);addEventListener('blur',blur);document.addEventListener('visibilitychange',visibility);raf=requestAnimationFrame(loop);
  return {get state(){return s},start(){if(s.status==='won'||s.status==='lost'){const l=s.locale;s=newGame();s.locale=l}start(s)},pause(){pause(s)},reset(){const l=s.locale;s=newGame();s.locale=l;keys.clear();pointer={x:0,y:0}},interact(){interact(s)},locale(l){s.locale=l==='ko'?'ko':'en'},target(id){chooseTarget(s,id)},pointer(x,y){pointer={x,y}},destroy(){alive=false;cancelAnimationFrame(raf);removeEventListener('keydown',keydown);removeEventListener('keyup',keyup);removeEventListener('blur',blur);document.removeEventListener('visibilitychange',visibility)}};
 }
-return {W,H,R,SITES,ORDERS,CAFE,HP_MAX,STAR_VOLLEY,WALK,PROPS,newGame,start,pause,step,interact,nearest,target,chooseTarget,hazards,fireStar,ufoNormal,taskText,draw,mount,math:{add,sub,mul,dot,cross,len,norm,at,angle,frame},camera};
+return {W,H,R,SITES,ORDERS,CAFE,HP_MAX,TIME_LIMIT,STAR_VOLLEY,WALK,PROPS,ALIEN_COUNT,ALIEN_HIT,blocked,walkSpeed,newGame,start,pause,step,interact,nearest,target,chooseTarget,hazards,fireStar,ufoNormal,taskText,draw,mount,math:{add,sub,mul,dot,cross,len,norm,at,angle,frame},camera};
 });
 
-const game=Daldongne.mount(document.querySelector("canvas"),()=>{});game.locale("en");document.querySelector("#start").onclick=()=>{game.start();document.querySelector("canvas").focus()};document.querySelector("#pause").onclick=()=>game.pause();document.querySelector("#reset").onclick=()=>game.reset();document.querySelector("#action").onclick=()=>game.interact();const held=new Map();function move(){let x=0,y=0;held.forEach(v=>{x+=v[0];y+=v[1]});game.pointer(x,y)}document.querySelectorAll('[data-dir]').forEach(b=>{b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);held.set(e.pointerId,b.dataset.dir.split(',').map(Number));move()};const stop=e=>{held.delete(e.pointerId);move()};b.onpointerup=stop;b.onpointercancel=stop;b.onlostpointercapture=stop});addEventListener('blur',()=>{held.clear();move()});</script></body></html>
+const game=Daldongne.mount(document.querySelector("canvas"),s=>sync(s));game.locale("en");
+const $=q=>document.querySelector(q);
+const canvas=$("canvas"),titleScreen=$("#titleScreen"),helpScreen=$("#helpScreen"),pauseScreen=$("#pauseScreen"),overScreen=$("#overScreen");
+let helpOpen=false,shown=null;
+// The canvas draws only the world; every panel and button lives in HTML on top of it.
+function sync(s){
+ const st=helpOpen?'help':s.status;
+ if(st===shown)return;shown=st;
+ helpScreen.hidden=st!=='help';
+ titleScreen.hidden=st!=='ready';
+ pauseScreen.hidden=st!=='paused';
+ overScreen.hidden=st!=='won'&&st!=='lost';
+ if(st==='won'||st==='lost'){
+  $("#overTitle").textContent=st==='won'?'배달 완료!':'커피를 쏟았어요';
+  $("#overText").textContent=st==='won'?'네 잔의 커피, 네 이웃의 인사. 오늘도 좋은 하루!'
+   :game.state.timeUp?'시간이 다 됐어요. 조금만 더 서둘러 볼까요?':'별에 맞아 하트를 모두 잃었어요. 다시 배달해 볼까요?';
+ }
+}
+const focusGame=()=>{shown=null;canvas.focus()};
+$("#btnPlay").onclick=()=>{game.start();focusGame()};
+$("#btnHowto").onclick=()=>{helpOpen=true;shown=null;sync(game.state)};
+$("#btnBack").onclick=()=>{helpOpen=false;focusGame()};
+$("#btnResume").onclick=()=>{game.pause();focusGame()};
+$("#btnQuit").onclick=()=>{game.reset();focusGame()};
+$("#btnRetry").onclick=()=>{game.start();focusGame()};
+sync(game.state);</script></body></html>
