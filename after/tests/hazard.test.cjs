@@ -21,12 +21,12 @@ test('HP starts at 3 and resets', () => {
 });
 
 test('a hit spills every cup still in hand and sends you back to the cafe', () => {
-  const s = g.newGame(); g.start(s);
+  const s = g.newGame(); g.start(s); s.aliens = [];   // falling stars only
   s.n = g.CAFE.door.slice(); g.interact(s);
-  assert.equal(s.carrying, 4);
-  s.n = g.ORDERS[0].door.slice(); g.interact(s);      // one delivered, three in hand
+  assert.equal(s.carrying, g.ORDER_N);
+  s.n = g.ORDERS[0].door.slice(); g.interact(s);      // one delivered, the rest in hand
   assert.equal(s.done.length, 1);
-  assert.equal(s.carrying, 3);
+  assert.equal(s.carrying, g.ORDER_N - 1);
   s.n = g.newGame().n;                                 // back out in the open
   run(s, 3.05);
   s.n = s.stars[0].to.slice();                         // stand on the impact point
@@ -36,7 +36,7 @@ test('a hit spills every cup still in hand and sends you back to the cafe', () =
   assert.equal(s.target, 'cafe', 'sent back to the cafe');
   assert.equal(s.done.length, 1, 'the delivery already made still counts');
   s.n = g.CAFE.door.slice(); g.interact(s);
-  assert.equal(s.carrying, 3, 'the cafe refills only what is still owed');
+  assert.equal(s.carrying, g.ORDER_N - 1, 'the cafe refills only what is still owed');
 });
 
 test('the run is on a clock', () => {
@@ -72,7 +72,7 @@ test('a volley of 4 stars is fired every 3 seconds while playing', () => {
 });
 
 test('one volley costs a standing player exactly 1 hp, not 4', () => {
-  const s = g.newGame(); g.start(s);
+  const s = g.newGame(); g.start(s); s.aliens = [];   // falling stars only
   run(s, 3.1);
   assert.equal(s.stars.length, 4);
   run(s, 2.6);
@@ -98,7 +98,7 @@ test('nothing fires while paused or before start', () => {
 });
 
 test('a hit costs exactly 1 hp and removes that star', () => {
-  const s = g.newGame(); g.start(s);
+  const s = g.newGame(); g.start(s); s.aliens = [];   // falling stars only
   run(s, 3.1);
   const before = s.stars.length;
   run(s, 2.5);
@@ -107,7 +107,7 @@ test('a hit costs exactly 1 hp and removes that star', () => {
 });
 
 test('stars burst on landing and leave a pop behind', () => {
-  const s = g.newGame(); g.start(s);
+  const s = g.newGame(); g.start(s); s.aliens = [];   // falling stars only
   run(s, 3.05);
   for (const st of s.stars) st.to = g.math.at(2.4, -.5); // aim them all far away
   const fired = s.stars.slice();
@@ -191,7 +191,7 @@ test('the damage circle matches the circle that gets drawn', () => {
   // a star aimed at a fixed point: standing inside the ring is hit, standing outside is not
   const shift = (from, along, rad) => M.norm(M.add(M.mul(from, Math.cos(rad)), M.mul(along, Math.sin(rad))));
   const probe = offset => {
-    const s = g.newGame(); g.start(s);
+    const s = g.newGame(); g.start(s); s.aliens = [];   // falling stars only
     run(s, 3.05);
     const st = s.stars[0];
     s.stars.length = 1;                        // isolate the aimed star from its fan
@@ -244,37 +244,165 @@ test('aliens patrol the surface without standing inside anything', () => {
 test('bumping an alien costs one heart, with a moment of mercy after', () => {
   const s = g.newGame(); g.start(s);
   s.stars = []; s.timeLeft = 999;
-  const a = s.aliens[0];
+  const a = s.aliens[0], before = s.aliens.length;
   s.n = a.n.slice();                       // stand right on top of one
   g.step(s, 1 / 60);
   assert.equal(s.hp, g.HP_MAX - 1, 'one heart gone');
   assert.ok(s.hurtTime > 0, 'brief invulnerability follows');
+  assert.equal(s.aliens.length, before - 1, 'the alien bursts and is gone');
+  assert.ok(!s.aliens.includes(a), 'that exact one, not some other');
+  assert.ok(s.pops.some(p => p.alien), 'and leaves a burst behind');
   s.stars = [];
   const hpAfter = s.hp;
   for (let i = 0; i < 20; i++) { s.n = s.aliens[0].n.slice(); g.step(s, 1 / 60); s.stars = [] }
   assert.equal(s.hp, hpAfter, 'no second hit while the mercy window lasts');
 });
 
-test('an alien hit does not spill the coffee', () => {
+test('an alien bump spills the coffee, exactly like a star', () => {
   const s = g.newGame(); g.start(s);
   s.n = g.CAFE.door.slice(); g.interact(s);
-  assert.equal(s.carrying, 4);
+  assert.equal(s.carrying, g.ORDER_N);
+  s.n = g.ORDERS[0].door.slice(); g.interact(s);       // deliver one, the rest left in hand
+  assert.equal(s.done.length, 1);
+  assert.equal(s.carrying, g.ORDER_N - 1);
   s.stars = []; s.timeLeft = 999;
   s.n = s.aliens[0].n.slice();
   g.step(s, 1 / 60);
+  assert.equal(s.hp, g.HP_MAX - 1, 'one heart gone');
+  assert.equal(s.carrying, 0, 'every cup in hand is spilled');
+  assert.equal(s.target, 'cafe', 'sent back to the cafe');
+  assert.equal(s.done.length, 1, 'the delivery already made still counts');
+  s.n = g.CAFE.door.slice(); g.interact(s);
+  assert.equal(s.carrying, g.ORDER_N - 1, 'the cafe refills only what is still owed');
+});
+
+test('aliens charge once the walker is close and calm down again', () => {
+  const M = g.math;
+  const s = g.newGame(); g.start(s);
+  s.stars = []; s.timeLeft = 999;
+  const a = s.aliens[0];
+  assert.equal(a.rage, 0, 'starts calm');
+
+  // park the walker just inside the aggro radius, far enough not to collide during the check
+  const side = M.frame(a.n).e, gap = g.ALIEN_AGGRO * .8;
+  s.n = M.norm(M.add(M.mul(a.n, Math.cos(gap)), M.mul(side, Math.sin(gap))));
+  const before = M.angle(a.n, s.n);
+  for (let i = 0; i < 20; i++) { g.step(s, 1 / 60); s.stars = [] }
+  assert.ok(s.aliens.includes(a), 'still alive ??this test is about the charge, not the bump');
+  assert.ok(a.rage > .5, 'winds up to a charge, got ' + a.rage.toFixed(2));
+  assert.ok(M.angle(a.n, s.n) < before, 'and closes the gap');
+
+  // walk away to the far side and it settles down
+  s.n = M.mul(s.n, -1);
+  for (let i = 0; i < 90; i++) { g.step(s, 1 / 60); s.stars = [] }
+  assert.ok(a.rage < .1, 'calms back down out of range, got ' + a.rage.toFixed(2));
+});
+
+test('a charge that never lands burns the alien out, harmlessly', () => {
+  const M = g.math;
+  const s = g.newGame(); g.start(s);
+  s.stars = []; s.timeLeft = 999;
+  const a = s.aliens[0];
+  s.aliens = [a];                    // one alien, so nobody else can land a hit meanwhile
+  const before = s.aliens.length;
+  // hold the walker just inside the aggro ring, stepping away each frame so it never connects
+  const side = M.frame(a.n).e, gap = g.ALIEN_AGGRO * .8;
+  s.n = M.norm(M.add(M.mul(a.n, Math.cos(gap)), M.mul(side, Math.sin(gap))));
+  for (let i = 0; i < 60 * (g.ALIEN_FUSE + 1); i++) {
+    s.stars = [];
+    const away = M.norm(M.sub(s.n, M.mul(a.n, M.dot(s.n, a.n))));
+    s.n = M.norm(M.add(M.mul(a.n, Math.cos(gap)), M.mul(away, Math.sin(gap))));  // keep the gap fixed
+    g.step(s, 1 / 60);
+    if (!s.aliens.includes(a)) break;
+  }
+  assert.ok(!s.aliens.includes(a), 'it blew itself up');
+  assert.ok(s.aliens.length < before, 'the crowd thins out');   // neighbours may burn out too
+  assert.equal(s.hp, g.HP_MAX, 'and took no heart with it');
+  assert.ok(s.pops.some(p => p.alien), 'leaving the same green burst');
+});
+
+test('a charging alien can always be outrun', () => {
+  const s = g.newGame();
+  for (let hp = 1; hp <= g.HP_MAX; hp++) {
+    s.hp = hp;
+    assert.ok(g.walkSpeed(s) > g.ALIEN_RUSH,
+      `at ${hp} heart(s) the walk (${g.walkSpeed(s).toFixed(2)}) must beat the rush (${g.ALIEN_RUSH})`);
+  }
+});
+
+test('the field is crowded but nobody starts on top of anything', () => {
+  const s = g.newGame();
+  assert.equal(s.aliens.length, g.ALIEN_COUNT);
+  assert.ok(g.ALIEN_COUNT >= 8, 'a proper crowd');
+  for (let i = 0; i < s.aliens.length; i++) {
+    assert.ok(!g.blocked(s.aliens[i].n));
+    assert.ok(g.math.angle(s.aliens[i].n, s.n) > .4, 'not on the walker');
+    for (let j = i + 1; j < s.aliens.length; j++)
+      assert.ok(g.math.angle(s.aliens[i].n, s.aliens[j].n) > .2, 'spread out');
+  }
+});
+
+// Walk straight across a trap at a given speed and report whether it caught us.
+function crossTrap(hp) {
+  const M = g.math;
+  const s = g.newGame(); g.start(s);
+  s.stars = []; s.aliens = []; s.hearts = []; s.timeLeft = 999; s.hp = hp;
+  const tr = s.traps[0];
+  const dir = M.frame(tr.n).e;
+  // start one trap-radius short of the plate, heading straight through the middle
+  s.n = M.norm(M.add(M.mul(tr.n, Math.cos(g.TRAP_R)), M.mul(dir, -Math.sin(g.TRAP_R))));
+  s.north = M.norm(M.sub(tr.n, M.mul(s.n, M.dot(tr.n, s.n))));   // walking forward = toward the plate
+  const hp0 = s.hp;
+  for (let i = 0; i < 90 && !tr.spent; i++) { g.step(s, 1 / 60, {y: 1}); s.stars = [] }
+  return {armed: tr.spent, hurt: hp0 - s.hp};
+}
+
+test('a trap arms when stepped on and only a full-speed walker outruns it', () => {
+  const fast = crossTrap(g.HP_MAX);        // 0.74 rad/s
+  assert.ok(fast.armed, 'stepping on the plate arms it');
+  assert.equal(fast.hurt, 0, 'at full speed you clear the blast');
+
+  const slow = crossTrap(1);               // two hearts down, 0.49 rad/s
+  assert.ok(slow.armed);
+  assert.equal(slow.hurt, 1, 'hobbling, the same crossing catches you');
+});
+
+test('standing on an armed trap always costs a heart', () => {
+  const M = g.math;
+  const s = g.newGame(); g.start(s);
+  s.stars = []; s.aliens = []; s.hearts = []; s.timeLeft = 999;
+  const tr = s.traps[0];
+  s.n = tr.n.slice();
+  for (let i = 0; i < 60 && !tr.spent; i++) { g.step(s, 1 / 60); s.stars = [] }
+  assert.ok(tr.spent, 'it went off');
   assert.equal(s.hp, g.HP_MAX - 1);
-  assert.equal(s.carrying, 4, 'the cups survive an alien bump');
+  assert.ok(s.pops.some(p => p.trap), 'and left a burst');
+});
+
+test('traps are laid clear of doorsteps and of each other', () => {
+  const M = g.math;
+  const s = g.newGame();
+  assert.equal(s.traps.length, g.TRAP_COUNT);
+  for (let i = 0; i < s.traps.length; i++) {
+    const a = s.traps[i].n;
+    assert.ok(!g.blocked(a), 'not inside a building or boulder');
+    assert.ok(M.angle(a, s.n) > .5, 'not under the walker at the start');
+    for (const site of g.SITES) assert.ok(M.angle(a, site.door) > .29, 'not on a doorstep');
+    for (let j = i + 1; j < s.traps.length; j++)
+      assert.ok(M.angle(a, s.traps[j].n) > .3, 'not stacked on each other');
+  }
+  assert.equal(g.newGame().traps.every(t => !t.spent && t.fuse === 0), true, 'a new run re-lays them');
 });
 
 test('the task line names the current step', () => {
   const s = g.newGame(); g.start(s);
   assert.match(g.taskText(s), /카페에서 커피 받기/);
   s.n = g.CAFE.door; g.interact(s);
-  assert.equal(s.carrying, 4);
+  assert.equal(s.carrying, g.ORDER_N);
   assert.match(g.taskText(s), /배달하기/);
-  assert.match(g.taskText(s), /4잔/);
+  assert.match(g.taskText(s), new RegExp(g.ORDER_N + '잔'));
   s.n = g.ORDERS[0].door; g.interact(s);
-  assert.match(g.taskText(s), /3잔/);
+  assert.match(g.taskText(s), new RegExp((g.ORDER_N - 1) + '잔'));
 });
 
 test('losing every heart ends the game and reset restores them', () => {
@@ -310,8 +438,8 @@ test('delivery still works while dodging', () => {
   const s = g.newGame(); g.start(s);
   s.n = g.CAFE.door;
   assert.equal(g.interact(s), true);
-  assert.equal(s.carrying, 4);
+  assert.equal(s.carrying, g.ORDER_N);
   for (const o of g.ORDERS) { s.n = o.door; assert.equal(g.interact(s), true); }
-  assert.equal(s.done.length, 4);
+  assert.equal(s.done.length, g.ORDER_N);
   assert.equal(s.status, 'won');
 });

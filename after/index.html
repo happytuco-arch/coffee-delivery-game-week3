@@ -1,8 +1,9 @@
 <!doctype html><html lang="ko"><head><title>커피 배달 게임 | 프롬프트 구조화 실습</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 *{box-sizing:border-box}
 body{margin:0;background:#efe5d2;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#3f5346;overflow:hidden}
-main{height:100vh;display:block}
-canvas{width:100%;height:100%;display:block;outline:none}
+main{height:100vh;display:flex;align-items:center;justify-content:center}
+/* The frame is 3:2. object-fit keeps that ratio at any window size instead of stretching it. */
+canvas{width:100%;height:100%;object-fit:contain;display:block;outline:none}
 
 /* Full-screen panels: title, how-to-play, pause and result. */
 .screen{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -19,14 +20,17 @@ canvas{width:100%;height:100%;display:block;outline:none}
 .screen button.primary:hover{background:linear-gradient(#679680,#4e7a68)}
 .screen button:focus-visible{outline:2px solid #7f9f8e;outline-offset:3px}
 
-.sheet{background:#fffaee;border:1px solid #d9cdb0;border-radius:16px;padding:26px 30px;max-width:30rem;text-align:left}
-.sheet dl{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;margin:0 0 18px;align-items:center}
-.sheet dt{margin:0;display:flex;gap:5px}
-.sheet dd{margin:0;font-size:15px;color:#55614c}
-.sheet ul{margin:0;padding-left:18px;font-size:15px;line-height:1.75;color:#55614c;word-break:keep-all}
-kbd{display:inline-block;min-width:26px;padding:4px 8px;font:600 12px/1.2 inherit;text-align:center;color:#40584c;
- background:#f4ecd9;border:1px solid #cabfa3;border-bottom-width:2px;border-radius:6px}
-kbd.wide{min-width:96px}
+/* How to play: pictures first, a handful of words second. */
+.how{display:flex;flex-direction:column;align-items:center;gap:20px}
+.keys{display:flex;gap:30px;flex-wrap:wrap;justify-content:center}
+.key{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#6d7a63}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:33rem;width:100%}
+.card{display:flex;align-items:center;gap:13px;background:#fffaee;border:1px solid #d9cdb0;border-radius:15px;padding:12px 15px}
+.card span{font-size:14.5px;font-weight:600;color:#4c5c4d;line-height:1.45;word-break:keep-all;text-align:left}
+.card svg{flex:none}
+.note{margin:2px 0 0;font-size:13px;color:#8d8568;word-break:keep-all}
+.note b{color:#5f6d58}
+@media(max-width:560px){.cards{grid-template-columns:1fr}.keys{gap:18px}}
 </style></head><body><main><canvas tabindex="0" aria-label="플레이할 게임"></canvas></main>
 <div class="screen" id="titleScreen">
  <h1>배달의 커피 주문!</h1>
@@ -36,22 +40,70 @@ kbd.wide{min-width:96px}
 </div>
 <div class="screen" id="helpScreen" hidden>
  <h2>게임 방법</h2>
- <div class="sheet">
-  <dl>
-   <dt><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></dt><dd>이동 (<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 도 됩니다)</dd>
-   <dt><kbd class="wide">space</kbd></dt><dd>커피 받기 · 전하기</dd>
-   <dt><kbd>Esc</kbd></dt><dd>잠깐 멈추기</dd>
-   <dt><kbd>F</kbd></dt><dd>프레임(FPS) 표시 켜기 · 끄기</dd>
-  </dl>
-  <ul>
-   <li><b>제한 시간 안에</b> 카페에서 커피를 받아 네 이웃에게 모두 배달하세요.</li>
-   <li>가까이 가면 머리 위에 <b>SPACE</b> 표시가 뜹니다. 그때 누르세요.</li>
-   <li>머리 위 화살표가 다음 목적지를 가리킵니다.</li>
-   <li>하늘의 우주선이 별을 떨어뜨립니다. 바닥의 <b>붉은 원이 떨어질 자리</b>예요.</li>
-   <li>별에 맞으면 하트가 하나 사라지고 <b>들고 있던 커피를 모두 쏟습니다.</b> 카페에서 다시 받아야 해요(배달을 마친 잔은 그대로).</li>
-   <li>땅 위를 돌아다니는 <b>초록 외계인</b>과 부딪혀도 하트가 하나 사라집니다. 커피는 쏟지 않아요.</li>
-   <li>맞을수록 <b>걸음이 느려집니다.</b> 하트 셋을 모두 잃으면 처음부터 다시 합니다.</li>
-  </ul>
+ <div class="how">
+  <div class="keys">
+   <div class="key">
+    <svg viewBox="0 0 64 44" width="64" height="44" aria-hidden="true">
+     <g fill="#f4ecd9" stroke="#cabfa3" stroke-width="1.6">
+      <rect x="23" y="1" width="18" height="18" rx="4"/><rect x="1" y="23" width="18" height="18" rx="4"/>
+      <rect x="23" y="23" width="18" height="18" rx="4"/><rect x="45" y="23" width="18" height="18" rx="4"/></g>
+     <g fill="#40584c"><path d="M32 6l4.5 7h-9z"/><path d="M6 32l7-4.5v9z"/><path d="M32 38l-4.5-7h9z"/><path d="M58 32l-7 4.5v-9z"/></g>
+    </svg><span>이동</span>
+   </div>
+   <div class="key">
+    <svg viewBox="0 0 64 44" width="64" height="44" aria-hidden="true">
+     <circle cx="32" cy="22" r="17" fill="#fdf6e6" stroke="#3f6151" stroke-width="3"/>
+     <text x="32" y="26" text-anchor="middle" font-size="9.5" font-weight="700" fill="#3f6151" font-family="inherit">SPACE</text>
+    </svg><span>받기 · 전하기</span>
+   </div>
+   <div class="key">
+    <svg viewBox="0 0 64 44" width="64" height="44" aria-hidden="true">
+     <rect x="16" y="9" width="32" height="25" rx="6" fill="#f4ecd9" stroke="#cabfa3" stroke-width="2"/>
+     <text x="32" y="26" text-anchor="middle" font-size="11.5" font-weight="700" fill="#40584c" font-family="inherit">Esc</text>
+    </svg><span>잠깐 멈춤</span>
+   </div>
+  </div>
+  <div class="cards">
+   <div class="card">
+    <svg viewBox="0 0 76 48" width="72" height="46" aria-hidden="true">
+     <path d="M7 17h17v13a8.5 8.5 0 0 1-17 0z" fill="#fdf7e7" stroke="#8a6a4c" stroke-width="2"/>
+     <path d="M24 20h4a4.5 4.5 0 0 1 0 9h-4" fill="none" stroke="#8a6a4c" stroke-width="2"/>
+     <path d="M33 25h8" stroke="#9a9078" stroke-width="2.6" stroke-linecap="round"/><path d="M47 25l-7-4.5v9z" fill="#9a9078"/>
+     <path d="M50 28l9-8 9 8z" fill="#7d8f68"/>
+     <rect x="53" y="28" width="12" height="11" rx="1.5" fill="#e8dfc7" stroke="#8a6a4c" stroke-width="1.5"/>
+     <rect x="57" y="32" width="4.5" height="7" fill="#b8825a"/>
+    </svg><span>커피 4잔<br>이웃 4곳에</span>
+   </div>
+   <div class="card">
+    <svg viewBox="0 0 64 48" width="62" height="46" aria-hidden="true">
+     <path d="M32 3l3.4 7 7.6 1.1-5.5 5.3 1.3 7.6-6.8-3.6-6.8 3.6 1.3-7.6L21 11.1l7.6-1.1z" fill="#f2662f"/>
+     <path d="M32 25v6" stroke="#e25634" stroke-width="2.6" stroke-linecap="round" opacity=".75"/>
+     <ellipse cx="32" cy="38" rx="20" ry="7.5" fill="#ce4838" fill-opacity=".22" stroke="#bc3226" stroke-width="2.6"/>
+     <ellipse cx="32" cy="38" rx="8" ry="3" fill="none" stroke="#fff0c8" stroke-width="2"/>
+    </svg><span>붉은 원에서<br>벗어나기</span>
+   </div>
+   <div class="card">
+    <svg viewBox="0 0 64 48" width="62" height="46" aria-hidden="true">
+     <path d="M26 17l-3.5-7M38 17l3.5-7" stroke="#ff6ba6" stroke-width="2.4" stroke-linecap="round"/>
+     <circle cx="22" cy="8" r="3.2" fill="#fff2a8"/><circle cx="42" cy="8" r="3.2" fill="#fff2a8"/>
+     <ellipse cx="32" cy="32" rx="9" ry="7.5" fill="#ff8ab8"/>
+     <ellipse cx="32" cy="21" rx="11" ry="9.5" fill="#ff6ba6"/>
+     <circle cx="28" cy="20.5" r="2.9" fill="#16241f"/><circle cx="36" cy="20.5" r="2.9" fill="#16241f"/>
+     <ellipse cx="32" cy="42" rx="16" ry="5" fill="none" stroke="#ff5c96" stroke-width="2.4"/>
+    </svg><span>분홍이 되면<br>달려듭니다</span>
+   </div>
+   <div class="card">
+    <svg viewBox="0 0 76 48" width="72" height="46" aria-hidden="true">
+     <g fill="#d93b3b"><path d="M11 32C5 27.5 1 24.5 1 20a5.5 5.5 0 0 1 10-3.2A5.5 5.5 0 0 1 21 20c0 4.5-4 7.5-10 12z"/>
+      <path d="M31 32c-6-4.5-10-7.5-10-12a5.5 5.5 0 0 1 10-3.2A5.5 5.5 0 0 1 41 20c0 4.5-4 7.5-10 12z"/></g>
+     <path d="M51 32c-6-4.5-10-7.5-10-12a5.5 5.5 0 0 1 10-3.2A5.5 5.5 0 0 1 61 20c0 4.5-4 7.5-10 12z" fill="#d93b3b"/>
+     <circle cx="68" cy="24" r="8.5" fill="#fffaee" stroke="#5f9a6b" stroke-width="2.4"/>
+     <path d="M68 19v5.5l3.5 2.5" fill="none" stroke="#41553f" stroke-width="2.2" stroke-linecap="round"/>
+    </svg><span>하트 3개<br>제한 시간</span>
+   </div>
+  </div>
+  <p class="note">바닥의 <b>회색 원판</b>을 밟으면 불이 들어옵니다 — 멈추지 말고 뛰어서 벗어나세요<br>
+   맞으면 하트가 줄고 들고 있던 커피를 쏟습니다 · <b>M</b> 소리 끄기 · <b>F</b> FPS 표시</p>
  </div>
  <button type="button" class="primary" id="btnBack">돌아가기</button>
 </div>
@@ -85,7 +137,9 @@ const SITES=[
  {id:'home2',lon:2.82,lat:.56,name:'작은집',en:'Small House',type:'hanok',color:'#dfcfaf',roof:'#555b62',w:1.25,d:.98,h:.74},
  {id:'home3',lon:-2.65,lat:-.61,name:'언덕집',en:'Hill House',type:'hanok',color:'#ead9b6',roof:'#64746a',w:1.2,d:1,h:.75}
 ].map(s=>({...s,n:at(s.lon,s.lat),door:at(s.lon,s.lat-.24)}));
-const ORDERS=SITES.slice(1,5),CAFE=SITES[0];
+// Six rounds spread right across the planet, so the far side and the south are part of the run.
+const ORDER_IDS=['books','store','laundry','pavilion','home5','home3'];
+const ORDERS=ORDER_IDS.map(id=>SITES.find(s=>s.id===id)),ORDER_N=ORDERS.length,CAFE=SITES[0];
 // Trees and yard props live here so that both the renderer and the walk collision can see them.
 const PROPS=(function(){
  const rnd=(seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}})(9187);
@@ -100,40 +154,112 @@ const PROPS=(function(){
  list.push({n:at(.92,.53),r:.075,kind:'line'});
  return list;
 })();
+// A radio mast out in the empty south-east: tall enough to steer by from half a world away.
+const TOWER_AT=at(2.0,-.62),TOWER_H=3.1;
+// Craters, placed once and kept clear of the shops and the walker's starting step.
+const CRATERS=(function(){
+ const rnd=(seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}})(3141),out=[];
+ let guard=0;
+ while(out.length<16&&guard++<900){
+  const n=at((rnd()-.5)*TAU,Math.asin((rnd()-.5)*1.9)),r=.32+rnd()*.72;
+  if(angle(n,at(-.13,-.025))<.4)continue;
+  if(SITES.some(s=>angle(n,s.n)<r/R+.22)||angle(n,TOWER_AT)<r/R+.12)continue;
+  if(out.some(o=>angle(o.n,n)<(o.r+r)/R+.05))continue;
+  out.push({n,r});
+ }
+ return out;
+})();
+PROPS.push({n:TOWER_AT,r:.062,kind:'tower'});
 function blocked(n){return SITES.some(b=>angle(n,b.n)<Math.max(b.w,b.d)/(2*R)+.033)||PROPS.some(p=>angle(n,p.n)<p.r)}
 // Three little aliens wander the surface. Bumping into one costs a heart, same as a falling star.
-const ALIEN_COUNT=3,ALIEN_SPEED=.27,ALIEN_HIT=.075,ALIEN_TURN=2.3;
+// Rush stays under the walk speed of a two-hit walker (.49), so a charge can always be outrun.
+const ALIEN_COUNT=9,ALIEN_SPEED=.17,ALIEN_RUSH=.42,ALIEN_AGGRO=.38,ALIEN_HIT=.07,ALIEN_TURN=2.3,ALIEN_FUSE=4.5;
 function spawnAliens(){
  const rnd=(seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}})(4242),out=[];
  let guard=0;
  while(out.length<ALIEN_COUNT&&guard++<500){
   const lon=(rnd()-.5)*TAU,lat=Math.asin((rnd()-.5)*1.5),n=at(lon,lat);
-  if(angle(n,at(-.13,-.025))<.55||blocked(n))continue;
-  out.push({n,d:frame(n).e,p:rnd()*TAU,stun:0});
+  if(angle(n,at(-.13,-.025))<.5||blocked(n))continue;
+  if(out.some(o=>angle(o.n,n)<.25))continue;
+  out.push({n,d:frame(n).e,p:rnd()*TAU,stun:0,rage:0,fuse:0});
  }
  return out;
 }
+// Two spare hearts, parked out in the empty half. Worth a detour only once you are hurt.
+// Buried mine plates. Stepping in arms one; it blows after a fuse, so the escape is a footrace:
+// at full speed you clear the blast by a hair, and every heart you have lost makes that hair thinner.
+const TRAP_R=.13,TRAP_FUSE=.38,TRAP_COUNT=11;
+const TRAPS_AT=(function(){
+ const rnd=(seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}})(8642),out=[];
+ let guard=0;
+ while(out.length<TRAP_COUNT&&guard++<900){
+  const n=at((rnd()-.5)*TAU,Math.asin((rnd()-.5)*1.7));
+  if(angle(n,at(-.13,-.025))<.55)continue;                       // never right at the walker's feet
+  if(SITES.some(s=>angle(n,s.door)<.30))continue;                // and never on a doorstep
+  if(blocked(n)||angle(n,TOWER_AT)<.2)continue;
+  if(out.some(o=>angle(o,n)<.32))continue;
+  out.push(n);
+ }
+ return out;
+})();
+function spawnTraps(){return TRAPS_AT.map(n=>({n,fuse:0,spent:false}))}
+function stepTraps(s,dt){
+ for(const tr of s.traps){
+  if(tr.spent)continue;
+  if(tr.fuse>0){
+   tr.fuse-=dt;
+   if(tr.fuse<=0){
+    tr.spent=true;tr.fuse=0;s.pops.push({n:tr.n,t:0,trap:true});
+    if(angle(tr.n,s.n)<TRAP_R&&s.mercy<=0){
+     const spilled=s.carrying;s.carrying=0;if(spilled)s.target='cafe';
+     hurt(s,{dead:'지뢰를 밟았어요.',hit:spilled?'지뢰! 커피를 '+spilled+'잔 쏟았어요.':'지뢰를 밟았어요!'});
+     if(s.status!=='playing')return;
+    }
+   }
+  }else if(angle(tr.n,s.n)<TRAP_R){tr.fuse=TRAP_FUSE;announce(s,'발밑에서 뭔가 켜졌어요. 뛰어요!')}
+ }
+}
+// Moon rabbits at their mortars, in the quiet corners between the shops.
+const RABBITS=[{n:at(-1.35,.62),p:0},{n:at(1.15,.38),p:2.1},{n:at(-2.6,.18),p:4.2},{n:at(.35,-.78),p:1.1}];
+const HEART_R=.085,HEARTS_AT=[at(1.55,-.95),at(-2.25,.55)];
+function spawnHearts(){return HEARTS_AT.map(n=>({n,taken:false}))}
+function stepHearts(s,dt){
+ for(const h of s.hearts){
+  if(h.taken||s.hp>=HP_MAX)continue;
+  if(angle(h.n,s.n)<HEART_R){h.taken=true;s.hp++;s.pops.push({n:h.n,t:0,heart:true});announce(s,'하트를 하나 주웠어요!')}
+ }
+}
 function stepAliens(s,dt){
- for(const a of s.aliens){
+ for(let ai=s.aliens.length-1;ai>=0;ai--){const a=s.aliens[ai];
   a.stun=Math.max(0,a.stun-dt);
+  // Within range they lock on and charge; otherwise they amble about.
+  const far=angle(a.n,s.n);
+  const hot=far<ALIEN_AGGRO&&a.stun<=0;
+  a.rage=clamp(a.rage+(hot?dt*2.6:-dt*1.3),0,1);
+  // A charge that never lands burns itself out: the alien pops on its own, harmlessly.
+  a.fuse=Math.max(0,a.fuse+(a.rage>.5?dt:-dt*1.5));
+  if(a.fuse>=ALIEN_FUSE){s.aliens.splice(ai,1);s.pops.push({n:a.n,t:0,alien:true});announce(s,'외계인이 스스로 터졌어요!');continue}
   const side=norm(cross(a.n,a.d)),toP=sub(s.n,mul(a.n,dot(s.n,a.n)));
   const chase=len(toP)>1e-6?norm(toP):a.d;
-  const weave=Math.sin(s.time*1.3+a.p)*.7;
-  const want=a.stun>0?mul(chase,-1):norm(add(mul(chase,.5),mul(side,weave)));
-  a.d=norm(add(a.d,mul(want,dt*ALIEN_TURN)));
+  const weave=Math.sin(s.time*1.3+a.p)*.7*(1-a.rage);
+  const want=a.stun>0?mul(chase,-1):norm(add(mul(chase,.5+.5*a.rage),mul(side,weave)));
+  a.d=norm(add(a.d,mul(want,dt*ALIEN_TURN*(1+a.rage))));
   a.d=norm(sub(a.d,mul(a.n,dot(a.d,a.n))));
-  const next=norm(add(a.n,mul(a.d,dt*ALIEN_SPEED)));
+  const next=norm(add(a.n,mul(a.d,dt*(ALIEN_SPEED+(ALIEN_RUSH-ALIEN_SPEED)*a.rage))));
   if(blocked(next)){a.d=norm(add(mul(a.d,-1),mul(side,.7)))}
   else{a.n=next;a.d=norm(sub(a.d,mul(next,dot(a.d,next))))}
-  if(s.hurtTime<=0&&angle(a.n,s.n)<ALIEN_HIT){
-   s.hp=Math.max(0,s.hp-1);s.hurtTime=.5;a.stun=1.6;
-   if(s.hp===0){s.status='lost';s.stars=[];announce(s,'외계인에게 붙잡혔어요.');return}
-   announce(s,'외계인과 부딪혔어요!');
+  // A bump costs a heart and every cup in hand, same as a star. The alien bursts and is gone.
+  if(s.mercy<=0&&angle(a.n,s.n)<ALIEN_HIT){
+   s.aliens.splice(ai,1);s.pops.push({n:a.n,t:0,hit:true,alien:true});
+   const spilled=s.carrying;s.carrying=0;if(spilled)s.target='cafe';
+   hurt(s,{dead:'외계인에게 붙잡혔어요.',
+    hit:spilled?'외계인과 부딪혀 커피를 '+spilled+'잔 쏟았어요!':'외계인이 펑! 하고 터졌어요.'});
+   if(s.status!=='playing')return;
   }
  }
 }
 // A small saucer drifts over the walker and drops star-shaped hazards. Delivery rules are untouched.
-const HP_MAX=3,TIME_LIMIT=95,SLOW_PER_HIT=.17,UFO_ALT=2.2,UFO_ORBIT=.36,UFO_PERIOD=13,STAR_FIRE=3,STAR_LIFE=3,STAR_FALL=1.18,STAR_HIT=.095,POP_LIFE=.55,STAR_VOLLEY=4,STAR_SPREAD=[0,.175,.25,.325],WALK=.74;
+const HP_MAX=3,TIME_LIMIT=95,SLOW_PER_HIT=.17,MERCY=1.4,UFO_ALT=2.2,UFO_ORBIT=.36,UFO_PERIOD=13,STAR_FIRE=3,STAR_LIFE=3,STAR_FALL=1.18,STAR_HIT=.078,POP_LIFE=.55,STAR_VOLLEY=4,STAR_SPREAD=[0,.175,.25,.325],WALK=.74;
 function ufoFrame(s){return {e:norm(cross(s.north,s.n)),u:s.north}}
 // The saucer sways across the sky ahead of the walker instead of orbiting behind the camera.
 function ufoNormal(s){
@@ -160,7 +286,8 @@ function taskText(s){
  return '지금 할 일 ②  '+(s.locale==='ko'?next.name:next.en)+'에 배달하기  (남은 커피 '+s.carrying+'잔)';
 }
 function hazards(s,dt){
- s.hurtTime=Math.max(0,s.hurtTime-dt);
+ s.hurtTime=Math.max(0,s.hurtTime-dt);s.mercy=Math.max(0,s.mercy-dt);
+ stepHearts(s,dt);stepTraps(s,dt);if(s.status!=='playing')return;
  stepAliens(s,dt);if(s.status!=='playing')return;
  for(let i=s.cheers.length-1;i>=0;i--){s.cheers[i].t+=dt;if(s.cheers[i].t>=CHEER_LIFE)s.cheers.splice(i,1)}
  s.fireTime+=dt;if(s.fireTime>=STAR_FIRE){s.fireTime-=STAR_FIRE;fireStar(s)}
@@ -171,16 +298,20 @@ function hazards(s,dt){
   if(st.t>=STAR_FALL){
    const hit=angle(st.to,s.n)<STAR_HIT;
    s.stars.splice(i,1);s.pops.push({n:st.to,t:0,hit});
-   if(hit){
-    s.hp=Math.max(0,s.hp-1);s.hurtTime=.5;
+   if(hit&&s.mercy<=0){
     const spilled=s.carrying;s.carrying=0;if(spilled)s.target='cafe';
-    if(s.hp===0){s.status='lost';s.stars=[];announce(s,'커피를 쏟았어요. 다시 시작해 볼까요?');return}
-    announce(s,spilled?'앗! 커피를 '+spilled+'잔 쏟았어요. 카페로 다시 가요.':'앗, 별에 맞았어요.');
+    hurt(s,{dead:'커피를 쏟았어요. 다시 시작해 볼까요?',
+     hit:spilled?'앗! 커피를 '+spilled+'잔 쏟았어요. 카페로 다시 가요.':'앗, 별에 맞았어요.'});
+    if(s.status!=='playing')return;
    }
   }
  }
 }
-function newGame(){const n=at(-.13,-.025);return {n,north:frame(n).u,facing:0,time:0,moving:false,status:'ready',carrying:0,done:[],target:'cafe',locale:'ko',message:'카페 앞에서 커피를 받아 보세요.',messageTime:8,steps:0,round:1,hp:HP_MAX,stars:[],fireTime:0,hurtTime:0,cheers:[],pops:[],timeLeft:TIME_LIMIT,aliens:spawnAliens()};}
+function newGame(){const n=at(-.13,-.025);return {n,north:frame(n).u,facing:0,time:0,moving:false,status:'ready',carrying:0,done:[],target:'cafe',locale:'ko',message:'카페 앞에서 커피를 받아 보세요.',messageTime:8,steps:0,round:1,hp:HP_MAX,stars:[],fireTime:0,hurtTime:0,mercy:0,cheers:[],pops:[],timeLeft:TIME_LIMIT,aliens:spawnAliens(),hearts:spawnHearts(),traps:spawnTraps()};}
+// One shared mercy window after any hit, so two hazards cannot chain-drain the hearts.
+function hurt(s,why){if(s.mercy>0)return false;s.hp=Math.max(0,s.hp-1);s.hurtTime=.5;s.mercy=MERCY;
+ if(s.hp===0){s.status='lost';s.stars=[];announce(s,why.dead);return true}
+ announce(s,why.hit);return true}
 // Every hit costs a heart, spills the cups still in hand, and leaves the walker a little slower.
 function walkSpeed(s){return WALK*(1-(HP_MAX-s.hp)*SLOW_PER_HIT)}
 const CHEER_LIFE=1.5;
@@ -194,13 +325,13 @@ function interact(s){
  if(!site){announce(s,'안내 화살표를 따라 이웃 앞으로 다가가세요.');return false}
  if(site.id==='cafe'){
   if(s.carrying){announce(s,'커피가 준비됐어요. 이웃에게 전해 주세요.');return false}
-  if(s.done.length===4)return false;
-  s.carrying=4-s.done.length;s.target=ORDERS.find(x=>!s.done.includes(x.id)).id;announce(s,'따뜻한 마음 네 잔, 배달을 시작해요.');return true;
+  if(s.done.length===ORDER_N)return false;
+  s.carrying=ORDER_N-s.done.length;s.target=ORDERS.find(x=>!s.done.includes(x.id)).id;announce(s,'따뜻한 마음 '+s.carrying+'잔, 배달을 시작해요.');return true;
  }
  if(s.done.includes(site.id)){announce(s,'이미 배달했어요. 다음 이웃을 찾아보세요.');return false}
  if(!s.carrying){s.target='cafe';announce(s,'먼저 카페에서 커피를 받아 주세요.');return false}
  s.carrying--;s.done.push(site.id);s.cheers.push({n:site.door,t:0});announce(s,site.neighbor+' · “고마워요! 좋은 하루 보내요.”');
- if(s.done.length===4){s.status='won';s.target='cafe';announce(s,'네 이웃에게 모두 전했어요. 오늘도 좋은 하루!')}
+ if(s.done.length===ORDER_N){s.status='won';s.target='cafe';announce(s,'모든 이웃에게 전했어요. 오늘도 좋은 하루!')}
  else s.target=ORDERS.find(x=>!s.done.includes(x.id)).id;
  return true;
 }
@@ -232,6 +363,7 @@ const CLOUDS=[
  {x:80,y:112,v:5.5,a:.13,b:[[0,0,60],[52,10,44],[-48,12,40],[16,-16,38]]},
  {x:620,y:206,v:3.6,a:.10,b:[[0,0,74],[64,12,52],[-60,14,46]]},
  {x:1030,y:96,v:7.2,a:.09,b:[[0,0,48],[42,8,36],[-40,10,32]]}];
+const wrapLon=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a};
 // Unit centroid, kept on every polygon so the horizon test never recomputes it per frame.
 function cen(pts){let x=0,y=0,z=0;for(const p of pts){x+=p[0];y+=p[1];z+=p[2]}const l=Math.hypot(x,y,z)||1;return [x/l,y/l,z/l]}
 function shade(hex,k){const a=hex.slice(1).match(/../g).map(x=>parseInt(x,16));return '#'+a.map(v=>Math.round(clamp(v*k,0,255)).toString(16).padStart(2,'0')).join('')}
@@ -241,17 +373,61 @@ function makeScene(locale){
  const poly=(pts,color,lit=true)=>{let k=1;if(lit){const n=norm(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])));k=.77+.23*Math.abs(dot(n,LIGHT))}polys.push({pts,color:shade(color,k),layer:currentLayer,c:cen(pts)})};
  function local(n,fn){const f=frame(n);return fn((x,y,z)=>add(mul(n,R+y),add(mul(f.e,x),mul(f.u,z))))}
  function box(p,x,y,z,w,h,d,color){const q=[p(x-w/2,y,z-d/2),p(x+w/2,y,z-d/2),p(x+w/2,y+h,z-d/2),p(x-w/2,y+h,z-d/2),p(x-w/2,y,z+d/2),p(x+w/2,y,z+d/2),p(x+w/2,y+h,z+d/2),p(x-w/2,y+h,z+d/2)];[[0,1,2,3],[1,5,6,2],[4,7,6,5],[0,3,7,4],[3,2,6,7]].forEach(ids=>poly(ids.map(i=>q[i]),color))}
- function ball(center,r,color,sx=1,sy=1,sz=1,seg=12,rings=7){for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){let v=[];for(const [a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){const n=at(a/seg*TAU,-Math.PI/2+b/rings*Math.PI);v.push(add(center,[n[0]*r*sx,n[1]*r*sy,n[2]*r*sz]))}poly(v,color)}}
+ // 9x5 is the house default: most static spheres here are small props seen from a distance.
+ function ball(center,r,color,sx=1,sy=1,sz=1,seg=9,rings=5){for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){let v=[];for(const [a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){const n=at(a/seg*TAU,-Math.PI/2+b/rings*Math.PI);v.push(add(center,[n[0]*r*sx,n[1]*r*sy,n[2]*r*sz]))}poly(v,color)}}
  function roof(p,w,d,y,color,hip=true){const e=.17;const q=[p(-w/2-e,y,-d/2-e),p(w/2+e,y,-d/2-e),p(w/2+e,y,d/2+e),p(-w/2-e,y,d/2+e)];const ridge=[p(-w*.22,y+.42,0),p(w*.22,y+.42,0)];poly([q[0],q[1],ridge[1],ridge[0]],color);poly([q[3],ridge[0],ridge[1],q[2]],color);poly([q[0],ridge[0],q[3]],color);poly([q[1],q[2],ridge[1]],color);box(p,0,y-.07,0,w+.33,.075,d+.33,shade(color,.78));if(hip){for(let i=0;i<12;i++){const x=-w*.56+i*w*1.12/11;const endx=clamp(x,-w*.22,w*.22);poly([p(x-.017,y+.009,-d/2-e),p(x+.017,y+.009,-d/2-e),p(endx+.014,y+.429,0),p(endx-.014,y+.429,0)],shade(color,1.25),false)}box(p,0,y+.4,0,w*.52,.075,.09,shade(color,1.2))}}
  // The triangulated globe provides both the curved horizon and foreground occlusion.
  const rng=seed=>{let v=seed;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296}},rand=rng(531);
- for(let j=0;j<24;j++)for(let i=0;i<48;i++){const a=i/48*TAU,b=-Math.PI/2+j/24*Math.PI;const v=[at(a,b),at(a+TAU/48,b),at(a+TAU/48,b+Math.PI/24),at(a,b+Math.PI/24)].map(n=>mul(n,R));const color=shade(korean?'#b9c998':'#b9cbb0',.98+rand()*.035);poly([v[0],v[1],v[2]],color);poly([v[0],v[2],v[3]],color)}
+ // Four belts of terrain, so walking somewhere new actually looks like somewhere new.
+ // Costs nothing extra to draw: the globe mesh is the same, only the colour changes.
+ // The ground is the Moon: maria, highlands, rilles and polar dust, blended rather than banded,
+ // with a low-frequency mottle on top so the regolith is never one flat tone.
+ const hex=c=>c.slice(1).match(/../g).map(h=>parseInt(h,16));
+ const mix=(a,b,t)=>{t=clamp(t,0,1);const A=hex(a),B=hex(b);
+  return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('')};
+ const ramp=(v,e0,e1)=>{const t=clamp((v-e0)/(e1-e0),0,1);return t*t*(3-2*t)};
+ const HIGHLAND='#9aa0ac',MARIA='#6b7280',RILLE='#878d99',POLAR='#dce0e7';
+ function ground(lon,lat){
+  const away=Math.abs(wrapLon(lon));
+  let col=mix(HIGHLAND,MARIA,ramp(away,1.55,2.35));               // 고지대 → 마리아
+  col=mix(col,RILLE,ramp(-lat,.50,.68)*(1-ramp(-lat,.90,1.02)));  // 열구를 낀 저지대
+  col=mix(col,POLAR,ramp(Math.abs(lat),.95,1.24));                // 극지 먼지
+  const patch=Math.sin(lon*3.1+lat*2.7)*Math.cos(lat*4.3-lon*1.9);
+  return mix(col,patch>0?'#b7bcc6':'#5f6673',Math.abs(patch)*.22);
+ }
+ for(let j=0;j<24;j++)for(let i=0;i<48;i++){const a=i/48*TAU,b=-Math.PI/2+j/24*Math.PI;
+  const v=[at(a,b),at(a+TAU/48,b),at(a+TAU/48,b+Math.PI/24),at(a,b+Math.PI/24)].map(n=>mul(n,R));
+  const color=shade(ground(a,b+Math.PI/48),.98+rand()*.035);poly([v[0],v[1],v[2]],color);poly([v[0],v[2],v[3]],color)}
  currentLayer=1;
- function road(a,b,width=.13,color='#e9d7b2'){const count=Math.ceil(angle(a,b)*45);for(let i=0;i<count;i++){const n1=norm(add(mul(a,1-i/count),mul(b,i/count))),n2=norm(add(mul(a,1-(i+1)/count),mul(b,(i+1)/count))),side=norm(cross(n1,n2));poly([add(mul(n1,R+.025),mul(side,-width)),add(mul(n1,R+.025),mul(side,width)),add(mul(n2,R+.025),mul(side,width)),add(mul(n2,R+.025),mul(side,-width))],color,false)}}
+ // Rover tracks: a broad swept path in pale dust with a darker rut worn down the middle.
+ function road(a,b,width=.13,color='#dfe4ec',rut='#9aa1ad'){const count=Math.ceil(angle(a,b)*45);
+  for(let i=0;i<count;i++){const n1=norm(add(mul(a,1-i/count),mul(b,i/count))),n2=norm(add(mul(a,1-(i+1)/count),mul(b,(i+1)/count))),side=norm(cross(n1,n2));
+   const band=(w,lift,col)=>poly([add(mul(n1,R+lift),mul(side,-w)),add(mul(n1,R+lift),mul(side,w)),add(mul(n2,R+lift),mul(side,w)),add(mul(n2,R+lift),mul(side,-w))],col,false);
+   band(width,.025,color);if(rut)band(width*.42,.027,rut);
+  }}
  const routes=[[CAFE.door,ORDERS[0].door],[CAFE.door,at(-.65,.05),at(-1.12,.35),at(-1.15,.58),ORDERS[1].door],[ORDERS[1].door,ORDERS[2].door],[ORDERS[2].door,at(1.3,.35),at(1.35,0),at(1.4,-.35),ORDERS[3].door]];for(const route of routes)for(let i=1;i<route.length;i++)road(route[i-1],route[i],.16);
- road(CAFE.door,at(-.13,-.025),.2);road(SITES.find(x=>x.id==='home4').door,CAFE.door,.14);road(SITES.find(x=>x.id==='home5').door,ORDERS[0].door,.14);road(SITES.find(x=>x.id==='home2').door,SITES.find(x=>x.id==='home3').door,.14);
- // A narrow stream wraps the lower part of the world.
- for(let i=0;i<80;i++){const a=i/80*TAU,b=(i+1)/80*TAU;road(at(a,-.72+Math.sin(a*3)*.1),at(b,-.72+Math.sin(b*3)*.1),.18,'#87b7b1')}
+ road(CAFE.door,at(-.13,-.025),.2);road(SITES.find(x=>x.id==='home4').door,CAFE.door,.14);
+ // Out to the new rounds: south to the flower house, then the long haul round the back to the hill house.
+ road(CAFE.door,at(.45,-.20),.15);road(at(.45,-.20),ORDERS[4].door,.15);
+ road(ORDERS[4].door,at(1.4,-.45),.13);road(at(1.4,-.45),TOWER_AT,.13);
+ road(SITES.find(x=>x.id==='home1').door,at(-1.9,-.15),.13);road(at(-1.9,-.15),at(-2.4,-.3),.13);road(at(-2.4,-.3),ORDERS[5].door,.13);
+ road(CAFE.door,at(-.9,.1),.14);road(at(-.9,.1),SITES.find(x=>x.id==='home1').door,.14);
+ road(SITES.find(x=>x.id==='home2').door,ORDERS[5].door,.13);
+ // A rille — a collapsed lava channel — winds round the lower half instead of a stream.
+ for(let i=0;i<80;i++){const a=i/80*TAU,b=(i+1)/80*TAU;road(at(a,-.72+Math.sin(a*3)*.1),at(b,-.72+Math.sin(b*3)*.1),.18,'#3f4450',null)}
+ // Craters with real relief: a raised rim, a sunken bowl and a floor, each facet lit on its own angle.
+ for(const cr of CRATERS){
+  const f=frame(cr.n),SEGC=10;
+  const at2=(rad,lift,i)=>{const a=i/SEGC*TAU;
+   return add(mul(cr.n,R+lift),add(mul(f.e,Math.cos(a)*rad),mul(f.u,Math.sin(a)*rad)))};
+  const outer=cr.r*1.34,rim=cr.r,floor=cr.r*.50;
+  const lipH=.055+cr.r*.06,bowlH=-(.075+cr.r*.10),floorH=bowlH-.022;
+  for(let i=0;i<SEGC;i++){const j=(i+1)%SEGC;
+   poly([at2(outer,.012,i),at2(outer,.012,j),at2(rim,lipH,j),at2(rim,lipH,i)],'#c2c7d1');   // 바깥 사면
+   poly([at2(rim,lipH,i),at2(rim,lipH,j),at2(floor,bowlH,j),at2(floor,bowlH,i)],'#6d7482');  // 안쪽 벽
+   poly([at2(floor,bowlH,i),at2(floor,bowlH,j),add(mul(cr.n,R+floorH),[0,0,0])],'#565d6b');  // 바닥
+  }
+ }
  currentLayer=2;
  // A modelled crest replaces the old floating name plate: readable from right across the town.
  function crest(p,s){
@@ -364,30 +540,66 @@ function makeScene(locale){
     break;
   }
  }
+ // Every shop is a pressurised module on landing struts: hull, dome, portholes, airlock, solar wing.
+ const HULL='#c9ced7',HULL2='#aeb5c0';
+ function dome(p,rad,y0,h,color,seg=10,rings=5){
+  for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){const p1=j/rings*Math.PI/2,p2=(j+1)/rings*Math.PI/2,a1=i/seg*TAU,a2=(i+1)/seg*TAU;
+   const P=(t,a)=>p(Math.cos(t)*rad*Math.cos(a),y0+Math.sin(t)*h,Math.cos(t)*rad*Math.sin(a));
+   poly([P(p1,a1),P(p1,a2),P(p2,a2),P(p2,a1)],color)}
+ }
  for(const s of SITES)local(s.n,p=>{
-  box(p,0,.01,0,s.w+.22,.11,s.d+.18,'#a59f83');
+  box(p,0,.01,0,s.w+.26,.09,s.d+.22,'#8b919c');                       // landing pad
+  for(const lx of[-1,1])for(const lz of[-1,1])box(p,lx*(s.w*.44),.05,lz*(s.d*.42),.07,.16,.07,'#6f7682');
+  const front=-s.d/2-.014,accent=s.roof;
   if(s.type==='pavilion'){
-   box(p,0,.12,0,s.w,.12,s.d,'#aa7754');for(const x of[-.52,.52])for(const z of[-.4,.4])box(p,x,.18,z,.085,s.h,.085,'#79543e');roof(p,s.w,s.d,1.02,korean?s.roof:'#ca9c7e',korean);
-   box(p,0,.25,.27,1.08,.13,.25,'#9c694b');
+   box(p,0,.16,0,s.w,.12,s.d,'#9aa1ad');
+   for(const x of[-.52,.52])for(const z of[-.4,.4])box(p,x,.22,z,.08,s.h,.08,'#7c838f');
+   dome(p,s.w*.56,.22+s.h,.42,accent,12,5);
+   box(p,0,.29,.27,1.08,.13,.25,'#848b97');
   }else{
-   box(p,0,.12,0,s.w,s.h,s.d,s.color);
-   if(korean||s.type==='cafe')roof(p,s.w,s.d,s.h+.15,korean?s.roof:'#b6836e',korean);else box(p,0,s.h+.1,0,s.w+.18,.22,s.d+.12,s.roof);
-   const front=-s.d/2-.014;
-   box(p,0,.13,front,.27,s.h*.76,.02,'#816548');box(p,0,.26,front-.015,.2,s.h*.40,.015,'#bfd1bd');
-   for(const x of[-s.w*.31,s.w*.31]){box(p,x,.38,front,.28,.30,.02,'#6f8e85');box(p,x,.37,front-.02,.30,.035,.025,'#836c51');box(p,x,.38,front-.022,.035,.31,.025,'#836c51')}
-   for(const x of[-s.w*.48,s.w*.48])box(p,x,.12,front,.06,s.h,.04,'#997450');
-   box(p,0,.085,-s.d*.65,.55,.10,.3,'#beb398');
-   if(s.type==='shop'){box(p,0,s.h*.78,-s.d*.66,s.w*.9,.045,.46,s.id==='store'?'#749480':'#b1babe');for(let x=-.45;x<.5;x+=.15)box(p,x,s.h*.71,-s.d*.91,.08,.13,.018,'#f5ead1')}
-   if(s.type==='cafe'){box(p,-.87,.1,-.31,.19,.4,.19,'#bb8264');box(p,-.87,.51,-.31,.25,.07,.25,'#f0dab1');ball(p(-.86,.75,-.31),.17,'#e6b888');}
+   box(p,0,.20,0,s.w,s.h*.86,s.d,HULL);                               // hull
+   box(p,0,.20+s.h*.42,0,s.w+.05,.06,s.d+.05,HULL2);                  // seam band
+   dome(p,Math.max(s.w,s.d)*.47,.20+s.h*.86,.34,accent,10,4);         // pressure dome
+   box(p,0,.20+s.h*.86,0,s.w*.9,.05,s.d*.9,'#98a0ac');
+   box(p,0,.22,front,.30,s.h*.54,.03,'#6a7280');                      // airlock
+   box(p,0,.28,front-.02,.22,s.h*.34,.02,'#d9e6ea');
+   for(const x of[-s.w*.30,s.w*.30])ball(p(x,.20+s.h*.52,front-.01),.085,'#ffe6a6',1,1,.34);   // 조명 켜진 현창
+   ball(p(0,.20+s.h*.16,-s.d*.62),.07,'#ffd98a',1,1,.4);
+   // solar wing on one flank
+   const sw=s.w*.52+.34;
+   box(p,sw,.20+s.h*.5,0,.05,.05,.5,'#7b828e');
+   poly([p(sw,.20+s.h*.5+.02,-.30),p(sw+.42,.20+s.h*.5+.16,-.30),p(sw+.42,.20+s.h*.5+.16,.30),p(sw,.20+s.h*.5+.02,.30)],'#3f5f8c');
+   poly([p(sw,.20+s.h*.5-.01,-.30),p(sw+.42,.20+s.h*.5+.13,-.30),p(sw+.42,.20+s.h*.5+.13,.30),p(sw,.20+s.h*.5-.01,.30)],'#31496b');
+   if(s.type==='shop'){box(p,0,.20+s.h*.62,-s.d*.66,s.w*.9,.05,.44,s.id==='store'?'#6f9a8b':'#9bb0c4');
+    for(let x=-.45;x<.5;x+=.15)box(p,x,.20+s.h*.55,-s.d*.9,.08,.12,.02,'#e8eef4')}
+   if(s.type==='cafe'){box(p,-.87,.14,-.31,.17,.42,.17,'#98a0ac');box(p,-.87,.56,-.31,.24,.07,.24,'#c2cad6');ball(p(-.86,.80,-.31),.16,'#dfe6ee');}
   }
   dressSite(p,s);crest(p,s);
-  // Earthenware jars and flowers are deliberate localization details.
-  if(korean&&s.type!=='pavilion'){ball(p(s.w*.6,.24,.26),.18,'#8a624c',1,1.25,1);box(p,s.w*.6,.44,.26,.22,.035,.22,'#725442');ball(p(s.w*.69,.16,-.06),.12,'#a77856');}
+  // Supply tanks parked round the back of every module.
+  if(s.type!=='pavilion'){ball(p(s.w*.6,.26,.26),.17,'#aeb5c0',1,1.3,1,9,5);box(p,s.w*.6,.46,.26,.20,.035,.20,'#7c838f');ball(p(s.w*.69,.16,-.06),.11,'#9aa1ad',1,1,1,8,4);}
  });
- // Courtyard trees: blossom trees and rounded pines. Fixed seed, reproducible world.
+ // The radio mast: four tapering legs, bracing rings, a dish and a beacon.
+ local(TOWER_AT,p=>{
+  box(p,0,0,0,.72,.09,.72,'#8e8a79');
+  const legs=[[-1,-1],[1,-1],[1,1],[-1,1]],SEG=5;
+  for(const[sx,sz]of legs)for(let k=0;k<SEG;k++){
+   const y=TOWER_H*k/SEG,w=.30*(1-.72*k/SEG);
+   box(p,sx*w,y,sz*w,.075,TOWER_H/SEG+.02,.075,'#9a9584');
+  }
+  for(let k=1;k<SEG;k++){const y=TOWER_H*k/SEG,w=.30*(1-.72*k/SEG);
+   box(p,0,y,-w,w*2,.05,.05,'#87826f');box(p,0,y,w,w*2,.05,.05,'#87826f');
+   box(p,-w,y,0,.05,.05,w*2,'#87826f');box(p,w,y,0,.05,.05,w*2,'#87826f');
+  }
+  box(p,0,TOWER_H,0,.26,.09,.26,'#b6b099');
+  box(p,0,TOWER_H+.09,0,.05,.42,.05,'#9a9584');
+  for(const[dx,dz]of[[-.19,0],[.19,0]])ball(p(dx,TOWER_H-.42,dz),.15,'#cfc9b0',1,.35,1);
+ });
  for(const t of PROPS){
   if(t.kind!=='tree')continue;
-  local(t.n,p=>{box(p,0,.02,0,.065,.47,.065,'#8d7759');const blossom=korean&&t.i%4===0;ball(p(0,.70,0),.32,blossom?'#efc4b6':'#7d9d74',1,1.2,1);ball(p(.17,.56,.07),.24,blossom?'#f2d0be':'#98b17d');});
+  // Boulders instead of trees: nothing grows up here. Kept to two low-poly lumps — there are 36 of them.
+  local(t.n,p=>{const pale=t.i%4===0;
+   ball(p(0,.06,0),.31,pale?'#aab0ba':'#848b98',1.05,.72,1,9,5);
+   ball(p(.17,.03,.08),.19,pale?'#b8bec7':'#939aa6',1,.66,1,8,4);});
  }
  // A low garden wall, bench, small tiled gate, lanterns and a laundry line.
  local(at(-.65,.14),p=>{for(let i=0;i<5;i++){box(p,(i-2)*.20,0,0,.185,.29,.13,'#b7ae94');box(p,(i-2)*.20,.29,0,.21,.06,.16,'#67756b')}});
@@ -446,23 +658,37 @@ function draw(c,s){
   const walk=isPlayer&&s.moving?Math.sin(s.steps*TAU)*.065:0;
   if(isPlayer){
    // The barista: a round little bear in a café apron. Faces are on the -z side, toward the camera.
-   const FUR='#a87a4e',FUR2='#c1936a',SNOUT='#f0dcc0',DARK='#3b2f27',APRON='#eae3d0';
-   ball(pos(0,.25,0),.185,FUR,1,1.4,.86);
-   ball(pos(0,.565,0),.205,FUR2,1,1,.96);
-   for(const sx of[-.152,.152]){ball(pos(sx,.705,.02),.073,FUR2);ball(pos(sx,.712,-.028),.041,'#e3b98f')}
-   ball(pos(0,.508,-.152),.088,SNOUT,1,.82,.78);
-   ball(pos(0,.522,-.208),.033,DARK,1,.85,.8);
-   for(const sx of[-.079,.079])ball(pos(sx,.605,-.158),.027,DARK);
-   for(const sx of[-.079,.079])ball(pos(sx-.012,.615,-.178),.009,'#fdf8ec');
-   litDyn([pos(-.158,.06,-.182),pos(.158,.06,-.182),pos(.138,.405,-.176),pos(-.138,.405,-.176)],APRON);
-   for(const sx of[-1,1])litDyn([pos(sx*.128,.40,-.178),pos(sx*.056,.40,-.178),pos(sx*.078,.552,-.125),pos(sx*.138,.552,-.125)],APRON);
-   ball(pos(0,.185,-.196),.028,'#9a7551',1,1,.5);
-   // The camera rides behind the bear, so the apron has to read from the back too: crossed straps and a bow.
-   for(const sx of[-1,1])litDyn([pos(sx*.142,.40,.172),pos(sx*.074,.40,.172),pos(-sx*.05,.18,.178),pos(-sx*.118,.18,.178)],APRON);
-   litDyn([pos(-.156,.21,.176),pos(.156,.21,.176),pos(.156,.135,.176),pos(-.156,.135,.176)],APRON);
-   for(const sx of[-1,1])ball(pos(sx*.075,.172,.2),.05,APRON,1,.85,.6);
-   ball(pos(-.09,.066,walk),.075,'#8b6440',.78,.8,1.4);ball(pos(.09,.066,-walk),.075,'#8b6440',.78,.8,1.4);
-   ball(pos(-.202,.29,-.07-walk*.55),.072,FUR,.72,1,1);ball(pos(.202,.29,-.07+walk*.55),.072,FUR,.72,1,1);
+   const FUR='#8f6339',FUR2='#a87a4e',SNOUT='#f0dcc0',DARK='#33291f',APRON='#fdf7e7';
+   // Spheres built in the bear's own axes. ball() scales along world axes, which would reshape
+   // the body depending on where on the globe it stands, and stop the apron from matching it.
+   const bball=(cx,cy,cz,r,color,sx=1,sy=1,sz=1,paint)=>{const seg=BQ[0],rings=BQ[1];
+    for(let j=0;j<rings;j++)for(let i=0;i<seg;i++){const pts=[];let mx=0,my=0,mz=0;
+     for(const[a,b]of[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]){const d=at(a/seg*TAU,-Math.PI/2+b/rings*Math.PI);
+      const lx=cx+d[0]*r*sx,ly=cy+d[1]*r*sy,lz=cz+d[2]*r*sz;mx+=lx;my+=ly;mz+=lz;pts.push(pos(lx,ly,lz))}
+     litDyn(pts,(paint&&paint(mx/4,my/4,mz/4))||color)}};
+   // The apron is painted straight onto the torso mesh. Laying separate cloth on top of the fur
+   // made the depth sort interleave the two, so the fur showed through between the panels.
+   const wrap=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a};
+   const apronPaint=(px,py,pz)=>{
+    const t=Math.atan2(px,-pz),ta=Math.abs(t);
+    if(ta<1.02&&py>.055&&py<.405)return APRON;            // skirt across the belly
+    if(ta<.55&&py>=.405&&py<.535)return APRON;            // bib
+    if(ta>.42&&ta<.72&&py>=.415)return APRON;             // straps over the shoulders
+    if(Math.PI-ta<1.06&&py>.145&&py<.25)return APRON;     // waist tie round the back
+    if(py>.20&&py<.47){const u=(py-.20)/.27;              // and the straps crossing behind
+     for(const sg of[-1,1])if(Math.abs(wrap(t-wrap(Math.PI+sg*(.34-1.06*u))))<.13)return APRON}
+    return null;
+   };
+   const BQ0=BQ;BQ=[16,11];bball(0,.25,0,.185,FUR,1,1.4,.86,apronPaint);BQ=BQ0;
+   bball(0,.565,0,.205,FUR2,1,1,.96);
+   for(const sx of[-.152,.152]){bball(sx,.705,.02,.073,FUR2);bball(sx,.712,-.028,.041,'#e3b98f')}
+   bball(0,.508,-.152,.088,SNOUT,1,.82,.78);
+   bball(0,.522,-.208,.033,DARK,1,.85,.8);
+   for(const sx of[-.079,.079])bball(sx,.605,-.158,.027,DARK);
+   for(const sx of[-.079,.079])bball(sx-.012,.615,-.178,.009,'#fdf8ec');
+   for(const sx of[-1,1])bball(sx*.062,.195,.15,.05,APRON,1,.9,.8);   // bow at the small of the back
+   bball(-.09,.066,walk,.075,'#8b6440',.78,.8,1.4);bball(.09,.066,-walk,.075,'#8b6440',.78,.8,1.4);
+   bball(-.202,.29,-.07-walk*.55,.072,FUR,.72,1,1);bball(.202,.29,-.07+walk*.55,.072,FUR,.72,1,1);
   }else{
    ball(pos(0,.24,0),.17,color,1,1.5,.8);ball(pos(0,.53,0),.19,'#d7a576',1,1.07,.95);
    ball(pos(0,.68,.015),.145,'#675044',1,.55,1);
@@ -473,23 +699,57 @@ function draw(c,s){
    ball(pos(-.195,.28,-.07),.067,'#d7a576',.7,1,1);ball(pos(.195,.28,-.07),.067,'#d7a576',.7,1,1);
   }
   if(isPlayer&&s.carrying){
-   dynPoly([pos(-.20,.29,-.13),pos(.20,.29,-.13),pos(.20,.29,-.46),pos(-.20,.29,-.46)],'#966f4e');
-   for(let i=0;i<s.carrying;i++){const x=(i%2-.5)*.16,z=-.23-Math.floor(i/2)*.16;const base=pos(x,.3,z),top=pos(x,.435,z);for(let a=0;a<8;a++){const k=a/8*TAU,k2=(a+1)/8*TAU;dynPoly([add(base,add(mul(f.e,Math.cos(k)*.048),mul(f.u,Math.sin(k)*.048))),add(base,add(mul(f.e,Math.cos(k2)*.048),mul(f.u,Math.sin(k2)*.048))),add(top,add(mul(f.e,Math.cos(k2)*.058),mul(f.u,Math.sin(k2)*.058))),add(top,add(mul(f.e,Math.cos(k)*.058),mul(f.u,Math.sin(k)*.058)))],a%2?'#f0e7d1':'#e0d2b2')};ball(pos(x,.446,z),.058,'#805a40',1,.17,1)}
+   // Tray and cup grid both derive from the round size, so cups can never overhang the tray.
+   const COLS=Math.min(3,ORDER_N),DX=.152,DZ=.155,Z0=-.235,ROWS=Math.ceil(ORDER_N/COLS);
+   const halfW=((COLS-1)/2)*DX+.088,zNear=Z0+.088,zFar=Z0-(ROWS-1)*DZ-.088;
+   dynPoly([pos(-halfW,.29,zNear),pos(halfW,.29,zNear),pos(halfW,.29,zFar),pos(-halfW,.29,zFar)],'#966f4e');
+   for(let i=0;i<s.carrying;i++){const x=(i%COLS-(COLS-1)/2)*DX,z=Z0-Math.floor(i/COLS)*DZ;const base=pos(x,.3,z),top=pos(x,.435,z);for(let a=0;a<8;a++){const k=a/8*TAU,k2=(a+1)/8*TAU;dynPoly([add(base,add(mul(f.e,Math.cos(k)*.048),mul(f.u,Math.sin(k)*.048))),add(base,add(mul(f.e,Math.cos(k2)*.048),mul(f.u,Math.sin(k2)*.048))),add(top,add(mul(f.e,Math.cos(k2)*.058),mul(f.u,Math.sin(k2)*.058))),add(top,add(mul(f.e,Math.cos(k)*.058),mul(f.u,Math.sin(k)*.058)))],a%2?'#f0e7d1':'#e0d2b2')};ball(pos(x,.446,z),.058,'#805a40',1,.17,1)}
   }
  }
- for(const o of ORDERS){person(o.door,false,s.done.includes(o.id)?'#829b75':['#af7869','#8d9675','#a29dab','#b89868'][ORDERS.indexOf(o)]);if(!s.done.includes(o.id))labels.push({pos:mul(o.door,R+1.03),text:'·',kind:'pin',n:o.door,id:o.id});}
+ for(const o of ORDERS){person(o.door,false,s.done.includes(o.id)?'#829b75':['#af7869','#8d9675','#a29dab','#b89868','#7f95a8','#c0926f'][ORDERS.indexOf(o)%6]);if(!s.done.includes(o.id))labels.push({pos:mul(o.door,R+1.03),text:'·',kind:'pin',n:o.door,id:o.id});}
  // Wandering aliens, about as big as a falling star.
  for(const a of s.aliens){
   if(dot(a.n,cam.eyeN)<.29)continue;
   shadowAt(a.n,.17,'rgba(30,48,42,.34)');
-  BQ=[9,6];
-  const af={e:norm(cross(a.n,a.d)),u:mul(a.d,-1)},bob=Math.sin(s.time*5.5+a.p)*.022;
+  BQ=[7,5];
+  const af={e:norm(cross(a.n,a.d)),u:mul(a.d,-1)},bob=Math.sin(s.time*(5.5+4*a.rage)+a.p)*.022;
   const ap=(x,y,z)=>add(mul(a.n,R+y+bob),add(mul(af.e,x),mul(af.u,z)));
-  const skin=a.stun>0?'#8fd6a8':'#6dc08d';
+  // Hot lime when calm, hot pink when charging: either way it never blends into the night town.
+  const skin=a.rage>.5?'#ff6ba6':'#9cff6b',skin2=a.rage>.5?'#ff9cc4':'#c9ff9c';
   ball(ap(0,.13,0),.135,skin,1,1.12,.9);
-  ball(ap(0,.30,0),.14,skin,1,.95,.92);
-  for(const sx of[-.07,.07])ball(ap(sx,.315,-.1),.04,'#1f2f2a');
-  for(const sx of[-1,1])ball(ap(sx*.105,.475,.015),.04,'#ffd98a');
+  ball(ap(0,.30,0),.14,skin2,1,.95,.92);
+  for(const sx of[-.07,.07])ball(ap(sx,.315,-.1),.042,'#16241f');
+  for(const sx of[-1,1])ball(ap(sx*.105,.475,.015),.042,'#fff2a8');
+  BQ=[8,5];
+ }
+ // Moon rabbits pounding rice cake: two of them, a mortar, and a pestle on the downbeat.
+ for(const rb of RABBITS){
+  if(dot(rb.n,cam.eyeN)<.29)continue;
+  BQ=[7,5];
+  const rf=frame(rb.n),rp=(x,y,z)=>add(mul(rb.n,R+y),add(mul(rf.e,x),mul(rf.u,z)));
+  const beat=s.time*3.1+rb.p;
+  shadowAt(rb.n,.30,'rgba(32,38,52,.34)');
+  ball(rp(0,.10,0),.19,'#8d939f',1,.62,1);                     // 절구
+  ball(rp(0,.235,0),.11,'#eef2f6',1,.5,1);                     // 하얀 떡
+  for(const sx of[-1,1]){
+   const lift=Math.max(0,Math.sin(sx>0?beat:beat+Math.PI))*.30,bx=sx*.34;
+   ball(rp(bx,.18+lift*.16,.04),.14,'#e6eaf0',1,1.15,.9);      // 몸
+   ball(rp(bx,.39+lift*.22,-.03),.115,'#f2f5f9');              // 머리
+   for(const ex of[-.05,.05])ball(rp(bx+ex,.58+lift*.26,-.03),.045,'#f6f8fb',.8,1.9,.8);  // 귀
+   for(const ex of[-.042,.042])ball(rp(bx+ex,.40+lift*.22,-.10),.02,'#3a4150');
+   ball(rp(bx-sx*.17,.30+lift*.55,-.04),.055,'#b6bcc7',1,1.3,1);   // 절굿공이
+  }
+  BQ=[8,5];
+ }
+ // Spare hearts, floating and turning where they lie.
+ for(const h of s.hearts){
+  if(h.taken||dot(h.n,cam.eyeN)<.29)continue;
+  BQ=[9,6];
+  const hf=frame(h.n),lift=.42+Math.sin(s.time*2.2)*.06,spin=s.time*1.1;
+  const hp2=(x,y,z)=>add(mul(h.n,R+lift+y),add(mul(hf.e,x*Math.cos(spin)-z*Math.sin(spin)),mul(hf.u,x*Math.sin(spin)+z*Math.cos(spin))));
+  const dim=s.hp>=HP_MAX?'#8d6b72':'#e24b57',dim2=s.hp>=HP_MAX?'#a5858b':'#ff8a92';
+  for(const sx of[-1,1])ball(hp2(sx*.075,.075,0),.095,dim2,1,1,.75);
+  ball(hp2(0,-.03,0),.105,dim,1,1.25,.75);
   BQ=[8,5];
  }
  shadowAt(s.n,.27,'rgba(62,72,56,.3)');
@@ -568,12 +828,54 @@ function draw(c,s){
  for(const l of labels){if(dot(l.n,cam.eyeN)<.22)continue;const p=cam.project(l.pos);if(l.kind==='sign'){
   c.font='500 14px "Workshop", "Noto Sans KR", sans-serif';const width=c.measureText(l.text).width+18;c.fillStyle='#faf2df';c.fillRect(p.x-width/2,p.y-12,width,24);c.fillStyle='#49584a';c.textAlign='center';c.fillText(l.text,p.x,p.y+5);
  }else if(l.id===s.target){const bounce=Math.sin(s.time*3)*3;c.fillStyle='#b5704f';c.beginPath();c.moveTo(p.x,p.y+13+bounce);c.lineTo(p.x-8,p.y-1+bounce);c.lineTo(p.x+8,p.y-1+bounce);c.fill();c.beginPath();c.arc(p.x,p.y-14+bounce,15,0,TAU);c.fill();c.fillStyle='#fff7e5';c.font='500 17px sans-serif';c.textAlign='center';c.fillText(l.id==='cafe'?'C':String(ORDERS.findIndex(o=>o.id===l.id)+1),p.x,p.y-8+bounce)}}
- // Impact markers: the outer ring is exactly STAR_HIT, the shrinking inner ring is the countdown.
  // Ground effects are anchored to points on the globe, so anything past the horizon must be dropped.
  const onThisSide=nn=>dot(nn,cam.eyeN)>HORIZON;
  const groundRing=(nn,rad,lift)=>{const fr=frame(nn);c.beginPath();
   for(let i=0;i<=16;i++){const a=i/16*TAU,p=cam.project(add(mul(nn,R+lift),add(mul(fr.e,Math.cos(a)*rad),mul(fr.u,Math.sin(a)*rad))));i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)}
   c.closePath()};
+ // Mine plates: a dull plate when dormant, a shrinking countdown ring once armed.
+ if(s.status==='playing')for(const tr of s.traps){
+  if(tr.spent||!onThisSide(tr.n))continue;
+  const hot=tr.fuse>0,k=hot?1-tr.fuse/TRAP_FUSE:0;
+  groundRing(tr.n,TRAP_R*R,.045);
+  if(hot){c.fillStyle='rgba(226,74,48,'+(.18+.40*k).toFixed(2)+')';c.fill()}
+  c.strokeStyle=hot?'rgba(255,'+Math.round(90+120*(1-k))+',60,'+(.65+.35*k).toFixed(2)+')':'rgba(120,128,142,.55)';
+  c.lineWidth=hot?3.5+3*k:2;c.stroke();
+  if(hot){groundRing(tr.n,TRAP_R*R*(1-k)+.02,.05);c.strokeStyle='rgba(255,236,190,.95)';c.lineWidth=2.5;c.stroke()}
+  else{groundRing(tr.n,TRAP_R*R*.42,.05);c.strokeStyle='rgba(150,158,172,.5)';c.lineWidth=1.6;c.stroke()}
+ }
+ // The mast beacon, and a ring under any heart still waiting to be picked up.
+ {const bp=cam.project(mul(TOWER_AT,R+TOWER_H+.5));
+  if(bp.z>.1&&dot(TOWER_AT,cam.eyeN)>-.15){
+   const t=.35+.65*Math.pow(Math.max(0,Math.sin(s.time*2.1)),6),rr=Math.max(6,300/bp.z);
+   const gb=c.createRadialGradient(bp.x,bp.y,0,bp.x,bp.y,rr*3);
+   gb.addColorStop(0,'rgba(255,90,80,'+(.5*t).toFixed(2)+')');gb.addColorStop(1,'rgba(255,90,80,0)');
+   c.fillStyle=gb;c.beginPath();c.arc(bp.x,bp.y,rr*3,0,TAU);c.fill();
+   c.fillStyle='rgba(255,'+Math.round(120+80*t)+',110,'+(.55+.45*t).toFixed(2)+')';
+   c.beginPath();c.arc(bp.x,bp.y,rr,0,TAU);c.fill()}}
+ if(s.status==='playing')for(const h of s.hearts){
+  if(h.taken||!onThisSide(h.n))continue;
+  const full=s.hp>=HP_MAX,pulse=.5+.5*Math.sin(s.time*2.6);
+  groundRing(h.n,.26+.04*pulse,.05);
+  c.strokeStyle=full?'rgba(150,130,135,.35)':'rgba(255,110,125,'+(.5+.35*pulse).toFixed(2)+')';
+  c.lineWidth=full?2:3;c.stroke();
+ }
+ // A glowing ring under every alien: they have to be findable against a dark town.
+ if(s.status==='playing')for(const a of s.aliens){
+  if(!onThisSide(a.n))continue;
+  const fuse=a.fuse/ALIEN_FUSE,blink=fuse>.6?1+8*fuse:0;
+  const pulse=.5+.5*Math.sin(s.time*(3.4+5*a.rage+blink)+a.p),hot=a.rage>.5;
+  const ap=cam.project(mul(a.n,R+.18));
+  if(ap.z>.1){const gr=Math.max(10,560/ap.z),g2=c.createRadialGradient(ap.x,ap.y,0,ap.x,ap.y,gr);
+   g2.addColorStop(0,hot?'rgba(255,107,166,.34)':'rgba(156,255,107,.26)');
+   g2.addColorStop(1,hot?'rgba(255,107,166,0)':'rgba(156,255,107,0)');
+   c.fillStyle=g2;c.beginPath();c.arc(ap.x,ap.y,gr,0,TAU);c.fill()}
+  groundRing(a.n,.30+(.05+.12*fuse)*pulse,.05);
+  c.strokeStyle=fuse>.6?'rgba(255,'+Math.round(240*pulse)+',190,'+(.7+.3*pulse).toFixed(2)+')'
+   :hot?'rgba(255,92,150,'+(.6+.35*pulse).toFixed(2)+')':'rgba(150,245,105,'+(.42+.3*pulse).toFixed(2)+')';
+  c.lineWidth=(hot?3.6:2.6)+2.5*fuse;c.stroke();
+ }
+ // Impact markers: the outer ring is exactly STAR_HIT, the shrinking inner ring is the countdown.
  if(s.status==='playing')for(const st of s.stars){
   if(!onThisSide(st.to))continue;
   const k=Math.min(1,st.t/STAR_FALL),hit=STAR_HIT*R;
@@ -588,14 +890,22 @@ function draw(c,s){
  // Impact burst: a shockwave ring plus shards thrown out from the point of contact.
  for(const pop of s.pops){
   if(!onThisSide(pop.n))continue;
-  const b=pop.t/POP_LIFE,fr=frame(pop.n),base=STAR_HIT*R;
+  const b=pop.t/POP_LIFE,fr=frame(pop.n),base=(pop.alien?1.9:pop.heart?1.4:pop.trap?2.1:1)*STAR_HIT*R;
+  if(pop.heart){groundRing(pop.n,base*(.4+b*1.7),.06);
+   c.strokeStyle='rgba(255,120,135,'+(1-b).toFixed(2)+')';c.lineWidth=6*(1-b)+1;c.stroke();continue}
   groundRing(pop.n,base*(.5+b*1.9),.06);
-  c.strokeStyle=(pop.hit?'rgba(232,96,70,':'rgba(240,206,140,')+(1-b).toFixed(2)+')';c.lineWidth=6*(1-b)+1;c.stroke();
-  for(let i=0;i<7;i++){const a=i/7*TAU+pop.n[0]*9,d0=base*.3,d1=base*(.7+1.5*b),lift=.06+Math.sin(Math.PI*b)*.55;
+  c.strokeStyle=(pop.alien?'rgba(156,255,107,':pop.trap?'rgba(255,148,64,':pop.hit?'rgba(232,96,70,':'rgba(240,206,140,')+(1-b).toFixed(2)+')';
+  c.lineWidth=(pop.alien?8:6)*(1-b)+1;c.stroke();
+  const shards=pop.alien?11:7,shardCol=pop.alien?'rgba(186,255,140,':'rgba(255,170,90,';
+  for(let i=0;i<shards;i++){const a=i/shards*TAU+pop.n[0]*9,d0=base*.3,d1=base*(.7+1.5*b),lift=.06+Math.sin(Math.PI*b)*(pop.alien?.8:.55);
    const q=nn=>cam.project(add(mul(pop.n,R+lift),add(mul(fr.e,Math.cos(a)*nn),mul(fr.u,Math.sin(a)*nn))));
    const p1=q(d0),p2=q(d1);if(p1.z<=.1||p2.z<=.1)continue;
-   c.strokeStyle='rgba(255,170,90,'+((1-b)*.9).toFixed(2)+')';c.lineWidth=3.5*(1-b)+.6;
+   c.strokeStyle=shardCol+((1-b)*.9).toFixed(2)+')';c.lineWidth=(pop.alien?4.5:3.5)*(1-b)+.6;
    c.beginPath();c.moveTo(p1.x,p1.y);c.lineTo(p2.x,p2.y);c.stroke()}
+  if(pop.alien){const fp=cam.project(mul(pop.n,R+.25+b*.5));
+   if(fp.z>.1){const fr2=Math.max(8,(1-b)*900/fp.z),gg=c.createRadialGradient(fp.x,fp.y,0,fp.x,fp.y,fr2);
+    gg.addColorStop(0,'rgba(226,255,190,'+((1-b)*.6).toFixed(2)+')');gg.addColorStop(1,'rgba(156,255,107,0)');
+    c.fillStyle=gg;c.beginPath();c.arc(fp.x,fp.y,fr2,0,TAU);c.fill()}}
  }
  // Delivery cheer: a ring spreads on the ground and hearts float up. The camera never moves for it.
  for(const ch of s.cheers){
@@ -613,12 +923,12 @@ function draw(c,s){
   c.fillStyle='#f6f1e4';c.beginPath();c.roundRect(X,Y,PW,186,10);c.fill();
   c.textAlign='left';
   c.fillStyle='#8d8568';c.font=label;c.fillText('퀘스트',X+23,Y+26);
-  c.fillStyle='#41553f';c.font='600 21px "Workshop", "Noto Sans KR", sans-serif';c.fillText('배달  '+s.done.length+' / 4',X+23,Y+52);
-  for(let i=0;i<4;i++){c.fillStyle=i<s.done.length?'#5c8a6e':'#ded5be';c.beginPath();c.roundRect(X+147+i*15,Y+38,11,11,3);c.fill()}
+  c.fillStyle='#41553f';c.font='600 21px "Workshop", "Noto Sans KR", sans-serif';c.fillText('배달  '+s.done.length+' / '+ORDER_N,X+23,Y+52);
+  for(let i=0;i<ORDER_N;i++){c.fillStyle=i<s.done.length?'#5c8a6e':'#ded5be';c.beginPath();c.roundRect(X+128+i*15,Y+38,11,11,3);c.fill()}
   c.fillStyle='#8d8568';c.font=label;c.fillText('커피',X+23,Y+82);
-  for(let i=0;i<4;i++){const has=i<s.carrying;
-   c.fillStyle=has?'#b8825a':'#e4dcc6';c.beginPath();c.roundRect(X+62+i*22,Y+72,15,17,3);c.fill();
-   c.fillStyle=has?'#d8ac7f':'#ece5d3';c.beginPath();c.roundRect(X+62+i*22,Y+72,15,5,2);c.fill()}
+  for(let i=0;i<ORDER_N;i++){const has=i<s.carrying,cx=X+62+i*16;
+   c.fillStyle=has?'#b8825a':'#e4dcc6';c.beginPath();c.roundRect(cx,Y+72,12,17,3);c.fill();
+   c.fillStyle=has?'#d8ac7f':'#ece5d3';c.beginPath();c.roundRect(cx,Y+72,12,5,2);c.fill()}
   c.fillStyle='#8d8568';c.font=label;c.fillText('체력',X+23,Y+120);
   const heart=(hx,hy,sz,col)=>{c.save();c.translate(hx,hy);c.scale(sz,sz);c.beginPath();
    c.moveTo(0,.3);c.bezierCurveTo(0,0,-.5,0,-.5,.3);c.bezierCurveTo(-.5,.62,0,.8,0,1);
@@ -667,15 +977,106 @@ function mount(canvas,onUpdate=()=>{}){
  addEventListener('keydown',keydown);addEventListener('keyup',keyup);addEventListener('blur',blur);document.addEventListener('visibilitychange',visibility);raf=requestAnimationFrame(loop);
  return {get state(){return s},start(){if(s.status==='won'||s.status==='lost'){const l=s.locale;s=newGame();s.locale=l}start(s)},pause(){pause(s)},reset(){const l=s.locale;s=newGame();s.locale=l;keys.clear();pointer={x:0,y:0}},interact(){interact(s)},locale(l){s.locale=l==='ko'?'ko':'en'},target(id){chooseTarget(s,id)},pointer(x,y){pointer={x,y}},destroy(){alive=false;cancelAnimationFrame(raf);removeEventListener('keydown',keydown);removeEventListener('keyup',keyup);removeEventListener('blur',blur);document.removeEventListener('visibilitychange',visibility)}};
 }
-return {W,H,R,SITES,ORDERS,CAFE,HP_MAX,TIME_LIMIT,STAR_VOLLEY,WALK,PROPS,ALIEN_COUNT,ALIEN_HIT,blocked,walkSpeed,newGame,start,pause,step,interact,nearest,target,chooseTarget,hazards,fireStar,ufoNormal,taskText,draw,mount,math:{add,sub,mul,dot,cross,len,norm,at,angle,frame},camera};
+return {W,H,R,SITES,ORDERS,CAFE,ORDER_N,HP_MAX,TIME_LIMIT,STAR_VOLLEY,WALK,PROPS,TOWER_AT,HEART_R,CRATERS,RABBITS,TRAP_R,TRAP_FUSE,TRAP_COUNT,ALIEN_COUNT,ALIEN_HIT,ALIEN_RUSH,ALIEN_FUSE,ALIEN_AGGRO,MERCY,blocked,walkSpeed,newGame,start,pause,step,interact,nearest,target,chooseTarget,hazards,fireStar,ufoNormal,taskText,draw,mount,math:{add,sub,mul,dot,cross,len,norm,at,angle,frame},camera};
 });
 
 const game=Daldongne.mount(document.querySelector("canvas"),s=>sync(s));game.locale("en");
+const D_ORDER_N=Daldongne.ORDER_N;
 const $=q=>document.querySelector(q);
 const canvas=$("canvas"),titleScreen=$("#titleScreen"),helpScreen=$("#helpScreen"),pauseScreen=$("#pauseScreen"),overScreen=$("#overScreen");
 let helpOpen=false,shown=null;
+
+/* ---- Sound. Everything is synthesised on the fly: no audio files, so the page still
+   loads with zero external requests and stays one self-contained HTML file. ---- */
+const A={ctx:null,muted:false,mode:null,next:0,timer:0};
+function audioStart(){                      // browsers only allow this from a real click
+ if(A.ctx)return A.ctx.resume&&A.ctx.resume(),A.ctx;
+ const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;
+ A.ctx=new C();
+ A.master=A.ctx.createGain();A.master.gain.value=.55;A.master.connect(A.ctx.destination);
+ A.mus=A.ctx.createGain();A.mus.gain.value=.20;A.mus.connect(A.master);
+ A.sfx=A.ctx.createGain();A.sfx.gain.value=.55;A.sfx.connect(A.master);
+ if(!A.mode)A.mode='calm';        // music must not wait on the render loop to get going
+ return A.ctx;
+}
+function tone(t,f,dur,type,peak,dest,f2){
+ if(!A.ctx)return;const o=A.ctx.createOscillator(),g=A.ctx.createGain();
+ o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+ if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),t+dur);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,peak),t+Math.min(.02,dur*.25));
+ g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ o.connect(g);g.connect(dest||A.sfx);o.start(t);o.stop(t+dur+.03);
+}
+function noise(t,dur,peak,cut){
+ if(!A.ctx)return;const n=Math.max(1,A.ctx.sampleRate*dur|0),b=A.ctx.createBuffer(1,n,A.ctx.sampleRate),d=b.getChannelData(0);
+ for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+ const src=A.ctx.createBufferSource();src.buffer=b;
+ const f=A.ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=cut||1400;
+ const g=A.ctx.createGain();g.gain.value=peak;
+ src.connect(f);f.connect(g);g.connect(A.sfx);src.start(t);
+}
+const SFX={
+ pickup:t=>{tone(t,523,.10,'triangle',.28);tone(t+.09,784,.16,'triangle',.24)},
+ deliver:t=>{tone(t,659,.10,'triangle',.26);tone(t+.09,880,.10,'triangle',.24);tone(t+.18,1175,.22,'triangle',.22)},
+ heart:t=>{tone(t,880,.09,'sine',.3);tone(t+.08,1319,.22,'sine',.26)},
+ hurt:t=>{tone(t,220,.26,'sawtooth',.26,null,90);noise(t,.16,.18,700)},
+ star:t=>{noise(t,.30,.30,900);tone(t,140,.26,'sine',.22,null,60)},
+ alien:t=>{tone(t,660,.09,'square',.16,null,1100);noise(t+.04,.26,.26,2400)},
+ trapArm:t=>{tone(t,1200,.06,'square',.16);tone(t+.12,1200,.06,'square',.16)},
+ trapBoom:t=>{noise(t,.42,.36,700);tone(t,90,.36,'sine',.26,null,42)},
+ tick:t=>tone(t,1600,.04,'square',.10),
+ win:t=>[0,.13,.26,.42].forEach((d,i)=>tone(t+d,[523,659,784,1047][i],.30,'triangle',.26)),
+ lose:t=>[0,.16,.34].forEach((d,i)=>tone(t+d,[392,311,233][i],.38,'sawtooth',.2)),
+};
+function play(name){if(!A.ctx||A.muted)return;const f=SFX[name];if(f)f(A.ctx.currentTime+.01)}
+// Two loops: an easy one, and a faster, tighter one for the last three rounds.
+const CALM={bar:2.4,n:8,bass:[110,110,98,98],lead:[440,523,659,523,587,523,440,392],type:'sine',peak:.16},
+      TENSE={bar:1.15,n:8,bass:[73,73,87,82],lead:[587,698,587,880,784,698,587,523],type:'triangle',peak:.2};
+function scheduleBar(){
+ // The tempo is decided here, on the audio timer, so it never depends on the render loop.
+ if(A.modeFn)A.mode=A.modeFn();
+ if(!A.ctx||!A.mode||A.muted){A.timer=setTimeout(scheduleBar,200);return}
+ const P=A.mode==='tense'?TENSE:CALM,step=P.bar/P.n;
+ let t=Math.max(A.ctx.currentTime+.06,A.next);
+ tone(t,P.bass[(A.barIdx=(A.barIdx||0)+1)%P.bass.length],P.bar*.9,'sine',.22,A.mus);
+ for(let i=0;i<P.n;i++){
+  if(A.mode==='calm'&&i%2)continue;                    // calm: half as many notes
+  tone(t+i*step,P.lead[i%P.lead.length],step*(A.mode==='tense'?.8:1.6),P.type,P.peak,A.mus);
+ }
+ if(A.mode==='tense')for(let i=0;i<P.n;i+=2)noise(t+i*step,.05,.05,3000);
+ A.next=t+P.bar;
+ A.timer=setTimeout(scheduleBar,Math.max(60,P.bar*1000-90));
+}
+function setMusic(mode){if(A.mode===mode)return;A.mode=mode;if(mode&&A.ctx)A.next=0}
+scheduleBar();
+addEventListener('keydown',e=>{if(e.key.toLowerCase()==='m'){A.muted=!A.muted;
+ if(A.master)A.master.gain.value=A.muted?0:.55}});
+
+// Watch the state each frame and turn the changes into sound. The game module stays silent
+// and pure; only this layer knows about audio.
+const prev={hp:null,carrying:0,done:0,status:null,tickAt:99};
+function listen(s){
+ if(!A.ctx)return;
+ if(prev.status!==s.status){
+  if(s.status==='won')play('win');
+  if(s.status==='lost')play('lose');
+  prev.status=s.status;
+ }
+ if(s.status==='playing'){
+  if(prev.hp!==null&&s.hp<prev.hp)play('hurt');
+  if(s.carrying>prev.carrying)play('pickup');
+  if(s.done.length>prev.done)play('deliver');
+  for(const p of s.pops)if(!p._snd&&p.t<.08){p._snd=1;play(p.alien?'alien':p.trap?'trapBoom':p.heart?'heart':'star')}
+  for(const t of s.traps)if(t.fuse>0&&!t._snd){t._snd=1;play('trapArm')}else if(t.fuse<=0&&!t.spent)t._snd=0;
+  const left=Math.ceil(s.timeLeft);
+  if(left<=10&&left!==prev.tickAt){prev.tickAt=left;play('tick')}
+  if(left>10)prev.tickAt=99;
+ }
+ prev.hp=s.hp;prev.carrying=s.carrying;prev.done=s.done.length;
+}
 // The canvas draws only the world; every panel and button lives in HTML on top of it.
 function sync(s){
+ try{listen(s)}catch(e){A.broken=e}   // sound is optional: it must never stop the game loop
  const st=helpOpen?'help':s.status;
  if(st===shown)return;shown=st;
  helpScreen.hidden=st!=='help';
@@ -689,10 +1090,14 @@ function sync(s){
  }
 }
 const focusGame=()=>{shown=null;canvas.focus()};
-$("#btnPlay").onclick=()=>{game.start();focusGame()};
-$("#btnHowto").onclick=()=>{helpOpen=true;shown=null;sync(game.state)};
+$("#btnPlay").onclick=()=>{audioStart();game.start();focusGame()};
+$("#btnHowto").onclick=()=>{audioStart();helpOpen=true;shown=null;sync(game.state)};
 $("#btnBack").onclick=()=>{helpOpen=false;focusGame()};
-$("#btnResume").onclick=()=>{game.pause();focusGame()};
+$("#btnResume").onclick=()=>{audioStart();game.pause();focusGame()};
 $("#btnQuit").onclick=()=>{game.reset();focusGame()};
-$("#btnRetry").onclick=()=>{game.start();focusGame()};
+$("#btnRetry").onclick=()=>{audioStart();game.start();focusGame()};
+// Calm while there is plenty left to deliver; the last three rounds run to a faster, tighter loop.
+A.modeFn=()=>{const s=game.state;
+ if(s.status!=='playing')return s.status==='ready'?'calm':null;
+ return D_ORDER_N-s.done.length<=3?'tense':'calm'};
 sync(game.state);</script></body></html>

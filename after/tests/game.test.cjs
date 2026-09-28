@@ -32,13 +32,14 @@ test('coffee is required and distant interaction cannot deliver', () => {
   s.n = g.math.at(0,-1.4);
   assert.equal(g.interact(s),false);
 });
-test('pick up four cups; duplicate interactions do not add deliveries; all four win', () => {
+test('pick up a full round; duplicate interactions do not add deliveries; all of them win', () => {
+  const N = g.ORDER_N;
   const s = g.newGame();g.start(s);s.n=g.CAFE.door;
-  assert.equal(g.interact(s),true);assert.equal(s.carrying,4);
-  assert.equal(g.interact(s),false);assert.equal(s.carrying,4);
+  assert.equal(g.interact(s),true);assert.equal(s.carrying,N);
+  assert.equal(g.interact(s),false);assert.equal(s.carrying,N);
   for (const [i,site] of g.ORDERS.entries()) {
     s.n=site.door;assert.equal(g.interact(s),true);
-    assert.equal(s.done.length,i+1);assert.equal(s.carrying,3-i);
+    assert.equal(s.done.length,i+1);assert.equal(s.carrying,N-1-i);
     assert.equal(g.interact(s),false);assert.equal(s.done.length,i+1);
   }
   assert.equal(s.status,'won');
